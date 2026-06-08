@@ -118,6 +118,26 @@ if (isAppPage) {
   }
 
   // =====================
+  // BOUTON REPEAT (déclenche immédiatement, puis toutes les 250ms)
+  // =====================
+  function attachRepeat(btn, action) {
+    let interval = null;
+    function start(e) {
+      e.preventDefault();
+      action();
+      interval = setInterval(action, 250);
+    }
+    function stop() {
+      clearInterval(interval);
+      interval = null;
+    }
+    btn.addEventListener('pointerdown',  start);
+    btn.addEventListener('pointerup',    stop);
+    btn.addEventListener('pointerleave', stop);
+    btn.addEventListener('pointercancel',stop);
+  }
+
+  // =====================
   // EFFETS VISUELS
   // =====================
   function flashVignette(color) {
@@ -783,25 +803,11 @@ if (isAppPage) {
     });
     tbody.querySelectorAll('.inv-qty-btn').forEach(btn=>{
       const i=parseInt(btn.dataset.i), dir=parseInt(btn.dataset.dir);
-      let repeatTimer=null, pressing=false;
-
-      function doChange(){
+      attachRepeat(btn, () => {
         const cur=parseInt(state.inventaire[i].quantite)||0;
         state.inventaire[i].quantite=Math.max(0,cur+dir);
         renderInventaire(); sauvegarder({inventaire:state.inventaire});
-      }
-
-      function stopRepeat(){ clearInterval(repeatTimer); repeatTimer=null; pressing=false; }
-
-      btn.addEventListener('pointerdown',(e)=>{
-        e.preventDefault();
-        pressing=true;
-        doChange();
-        repeatTimer=setInterval(()=>{ if(pressing) doChange(); else stopRepeat(); },250);
       });
-      btn.addEventListener('pointerup',    stopRepeat);
-      btn.addEventListener('pointerleave', stopRepeat);
-      btn.addEventListener('pointercancel',stopRepeat);
     });
     tbody.querySelectorAll('.inv-del-btn').forEach(btn=>{
       btn.addEventListener('click',()=>{
@@ -917,30 +923,19 @@ if (isAppPage) {
 
       const kcPlus  = document.getElementById('kc-plus');
       const kcMinus = document.getElementById('kc-minus');
-      // KC + : short press répété 250ms
-      let kcPlusTimer=null, kcPressing=false;
-      function stopKcPlus(){ clearInterval(kcPlusTimer); kcPlusTimer=null; kcPressing=false; }
-      kcPlus.addEventListener('pointerdown',(e)=>{
-        e.preventDefault(); kcPressing=true;
-        updateKC(state.killCount+1);
-        kcPlusTimer=setInterval(()=>{ if(kcPressing) updateKC(state.killCount+1); else stopKcPlus(); },250);
-      });
-      kcPlus.addEventListener('pointerup',    stopKcPlus);
-      kcPlus.addEventListener('pointerleave', stopKcPlus);
-      kcPlus.addEventListener('pointercancel',stopKcPlus);
+      // KC + : repeat
+      attachRepeat(kcPlus, () => updateKC(state.killCount + 1));
 
-      // KC - : long press = reset à 0, short press répété = -1
-      let kcTimer=null, kcLong=false, kcRepeat=null, kcMinusPressing=false;
-      function stopKcMinus(){ clearTimeout(kcTimer); clearInterval(kcRepeat); kcRepeat=null; kcLong=false; kcMinusPressing=false; }
-      kcMinus.addEventListener('pointerdown',(e)=>{
-        e.preventDefault(); kcMinusPressing=true; kcLong=false;
-        updateKC(state.killCount-1);
-        kcTimer=setTimeout(()=>{ kcLong=true; updateKC(0); stopKcMinus(); },600);
-        kcRepeat=setInterval(()=>{ if(kcMinusPressing&&!kcLong) updateKC(state.killCount-1); },250);
+      // KC - : simple click, long press = reset à 0
+      let kcTimer=null, kcLong=false;
+      kcMinus.addEventListener('click', () => { if (!kcLong) updateKC(state.killCount - 1); kcLong=false; });
+      kcMinus.addEventListener('pointerdown', () => {
+        kcLong=false;
+        kcTimer=setTimeout(() => { kcLong=true; updateKC(0); }, 600);
       });
-      kcMinus.addEventListener('pointerup',    stopKcMinus);
-      kcMinus.addEventListener('pointerleave', stopKcMinus);
-      kcMinus.addEventListener('pointercancel',stopKcMinus);
+      kcMinus.addEventListener('pointerup',    () => clearTimeout(kcTimer));
+      kcMinus.addEventListener('pointerleave', () => clearTimeout(kcTimer));
+      kcMinus.addEventListener('pointercancel',() => clearTimeout(kcTimer));
 
       // Death Count — span non éditable, +/- 1 uniquement
       state.deathCount = data.deathCount || 0;
@@ -953,22 +948,8 @@ if (isAppPage) {
         sauvegarder({ deathCount: state.deathCount });
       }
 
-      function attachDC(btnId, dir) {
-        const btn=document.getElementById(btnId);
-        let repeatTimer=null, pressing=false;
-        function doChange(){ updateDC(state.deathCount+dir); }
-        function stopRepeat(){ clearInterval(repeatTimer); repeatTimer=null; pressing=false; }
-        btn.addEventListener('pointerdown',(e)=>{
-          e.preventDefault(); pressing=true;
-          doChange();
-          repeatTimer=setInterval(()=>{ if(pressing) doChange(); else stopRepeat(); },250);
-        });
-        btn.addEventListener('pointerup',    stopRepeat);
-        btn.addEventListener('pointerleave', stopRepeat);
-        btn.addEventListener('pointercancel',stopRepeat);
-      }
-      attachDC('dc-plus',  1);
-      attachDC('dc-minus',-1);
+      attachRepeat(document.getElementById('dc-plus'),  () => updateDC(state.deathCount + 1));
+      attachRepeat(document.getElementById('dc-minus'), () => updateDC(state.deathCount - 1));
 
       // Notes communes — onSnapshot temps réel + bouton Soumettre
       const sharedRef  = doc(db, 'global_notes', 'global');
