@@ -711,10 +711,12 @@ if (isAppPage) {
     const tbody=document.getElementById('stats-tbody'); tbody.innerHTML='';
     STATS_KEYS.forEach(stat=>{
       const tr=document.createElement('tr');
+      const _tot = calcTotal(stat);
       tr.innerHTML=`
+        <td class="col-total"><span class="tbl-total" id="total-${stat}-left">${_tot}</span></td>
         <td><strong>${stat}</strong></td>
         <td class="col-base">
-          <input class="tbl-input" id="flat-${stat}" type="number" value="${state.stats.flat[stat]||0}" />
+          <input class="tbl-input no-spin" id="flat-${stat}" type="number" value="${state.stats.flat[stat]||0}" />
         </td>
         <td><span class="tbl-prefix">+</span><span id="equip-${stat}">${state.stats.equip[stat]||0}</span></td>
         <td>
@@ -731,7 +733,7 @@ if (isAppPage) {
             <button class="counter-btn stat-btn" data-stat="${stat}" data-col="percent" data-dir="1">+</button>
           </div>
         </td>
-        <td class="col-total"><span class="tbl-total" id="total-${stat}">${calcTotal(stat)}</span></td>
+        <td class="col-total"><span class="tbl-total" id="total-${stat}">${_tot}</span></td>
       `;
       tbody.appendChild(tr);
 
@@ -803,7 +805,7 @@ if (isAppPage) {
     });
     tbody.querySelectorAll('.inv-qty-btn').forEach(btn=>{
       const i=parseInt(btn.dataset.i), dir=parseInt(btn.dataset.dir);
-      attachRepeat(btn, () => {
+      btn.addEventListener('click', () => {
         const cur=parseInt(state.inventaire[i].quantite)||0;
         state.inventaire[i].quantite=Math.max(0,cur+dir);
         renderInventaire(); sauvegarder({inventaire:state.inventaire});
