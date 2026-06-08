@@ -765,7 +765,7 @@ if (isAppPage) {
         <td>
           <div class="counter-row" style="gap:0.2rem">
             <button class="counter-btn inv-qty-btn" data-i="${i}" data-dir="-1">−</button>
-            <input class="comp-input inv-input no-spin" data-i="${i}" data-field="quantite" type="number" min="0" value="${item.quantite||1}" style="width:3ch;text-align:center" />
+            <input class="comp-input inv-input no-spin" data-i="${i}" data-field="quantite" type="number" min="0" value="${item.quantite||0}" style="width:3ch;text-align:center" />
             <button class="counter-btn inv-qty-btn" data-i="${i}" data-dir="1">+</button>
           </div>
         </td>
@@ -783,7 +783,7 @@ if (isAppPage) {
     });
     tbody.querySelectorAll('.inv-qty-btn').forEach(btn=>{
       const i=parseInt(btn.dataset.i), dir=parseInt(btn.dataset.dir);
-      let repeatTimer=null;
+      let repeatTimer=null, pressing=false;
 
       function doChange(){
         const cur=parseInt(state.inventaire[i].quantite)||0;
@@ -791,11 +791,13 @@ if (isAppPage) {
         renderInventaire(); sauvegarder({inventaire:state.inventaire});
       }
 
-      function stopRepeat(){ clearInterval(repeatTimer); repeatTimer=null; }
+      function stopRepeat(){ clearInterval(repeatTimer); repeatTimer=null; pressing=false; }
 
-      btn.addEventListener('click', doChange);
-      btn.addEventListener('pointerdown',()=>{
-        repeatTimer=setInterval(doChange,250);
+      btn.addEventListener('pointerdown',(e)=>{
+        e.preventDefault();
+        pressing=true;
+        doChange();
+        repeatTimer=setInterval(()=>{ if(pressing) doChange(); else stopRepeat(); },250);
       });
       btn.addEventListener('pointerup',    stopRepeat);
       btn.addEventListener('pointerleave', stopRepeat);
@@ -916,22 +918,25 @@ if (isAppPage) {
       const kcPlus  = document.getElementById('kc-plus');
       const kcMinus = document.getElementById('kc-minus');
       // KC + : short press répété 250ms
-      let kcPlusTimer=null;
-      function stopKcPlus(){ clearInterval(kcPlusTimer); kcPlusTimer=null; }
-      kcPlus.addEventListener('click', () => updateKC(state.killCount + 1));
-      kcPlus.addEventListener('pointerdown',()=>{ kcPlusTimer=setInterval(()=>updateKC(state.killCount+1),250); });
+      let kcPlusTimer=null, kcPressing=false;
+      function stopKcPlus(){ clearInterval(kcPlusTimer); kcPlusTimer=null; kcPressing=false; }
+      kcPlus.addEventListener('pointerdown',(e)=>{
+        e.preventDefault(); kcPressing=true;
+        updateKC(state.killCount+1);
+        kcPlusTimer=setInterval(()=>{ if(kcPressing) updateKC(state.killCount+1); else stopKcPlus(); },250);
+      });
       kcPlus.addEventListener('pointerup',    stopKcPlus);
       kcPlus.addEventListener('pointerleave', stopKcPlus);
       kcPlus.addEventListener('pointercancel',stopKcPlus);
 
       // KC - : long press = reset à 0, short press répété = -1
-      let kcTimer=null, kcLong=false, kcRepeat=null;
-      function stopKcMinus(){ clearTimeout(kcTimer); clearInterval(kcRepeat); kcRepeat=null; kcLong=false; }
-      kcMinus.addEventListener('click',()=>{ if(!kcLong) updateKC(state.killCount-1); kcLong=false; });
-      kcMinus.addEventListener('pointerdown',()=>{
-        kcLong=false;
-        kcTimer=setTimeout(()=>{ kcLong=true; updateKC(0); },600);
-        kcRepeat=setInterval(()=>{ if(!kcLong) updateKC(state.killCount-1); },250);
+      let kcTimer=null, kcLong=false, kcRepeat=null, kcMinusPressing=false;
+      function stopKcMinus(){ clearTimeout(kcTimer); clearInterval(kcRepeat); kcRepeat=null; kcLong=false; kcMinusPressing=false; }
+      kcMinus.addEventListener('pointerdown',(e)=>{
+        e.preventDefault(); kcMinusPressing=true; kcLong=false;
+        updateKC(state.killCount-1);
+        kcTimer=setTimeout(()=>{ kcLong=true; updateKC(0); stopKcMinus(); },600);
+        kcRepeat=setInterval(()=>{ if(kcMinusPressing&&!kcLong) updateKC(state.killCount-1); },250);
       });
       kcMinus.addEventListener('pointerup',    stopKcMinus);
       kcMinus.addEventListener('pointerleave', stopKcMinus);
@@ -950,11 +955,14 @@ if (isAppPage) {
 
       function attachDC(btnId, dir) {
         const btn=document.getElementById(btnId);
-        let repeatTimer=null;
+        let repeatTimer=null, pressing=false;
         function doChange(){ updateDC(state.deathCount+dir); }
-        function stopRepeat(){ clearInterval(repeatTimer); repeatTimer=null; }
-        btn.addEventListener('click', doChange);
-        btn.addEventListener('pointerdown',()=>{ repeatTimer=setInterval(doChange,250); });
+        function stopRepeat(){ clearInterval(repeatTimer); repeatTimer=null; pressing=false; }
+        btn.addEventListener('pointerdown',(e)=>{
+          e.preventDefault(); pressing=true;
+          doChange();
+          repeatTimer=setInterval(()=>{ if(pressing) doChange(); else stopRepeat(); },250);
+        });
         btn.addEventListener('pointerup',    stopRepeat);
         btn.addEventListener('pointerleave', stopRepeat);
         btn.addEventListener('pointercancel',stopRepeat);
