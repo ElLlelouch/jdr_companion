@@ -1837,3 +1837,56 @@ body.light-mode .levelup-box {
   line-height: 1.6;
   max-width: 280px;
 }
+
+/* =====================
+   EXP — layout modulaire
+======================== */
+.exp-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem 1rem;
+}
+
+.exp-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.exp-cell--right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+/* Si pas assez de place, passe à la ligne */
+@media (max-width: 380px) {
+  .exp-cell--right { margin-left: 0; }
+}
+
+/* =====================
+   ÉQUIPEMENTS — scroll horizontal + description wrap
+======================== */
+#equip-body .table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.equip-table {
+  table-layout: auto !important;
+  min-width: 480px;
+  width: 100%;
+}
+
+.equip-table td:nth-child(4) {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.4;
+  min-width: 140px;
+  max-width: 220px;
+}

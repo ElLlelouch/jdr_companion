@@ -259,7 +259,7 @@ if (isAppPage) {
 
   function attachBouton(btnId, type, direction, champ) {
     const btn=document.getElementById(btnId);
-    let timer=null, isLong=false;
+    let timer=null, repeatTimer=null, isLong=false;
 
     function appliquer(montant) {
       if (type === 'exp') {
@@ -283,10 +283,28 @@ if (isAppPage) {
     const montantCourt = type === 'exp' ? 5  : 1;
     const montantLong  = type === 'exp' ? 50 : 5;
 
-    btn.addEventListener('click',       ()=>{ if(!isLong) appliquer(montantCourt); isLong=false; });
-    btn.addEventListener('pointerdown', ()=>{ isLong=false; timer=setTimeout(()=>{isLong=true;appliquer(montantLong);},500); });
-    btn.addEventListener('pointerup',   ()=>clearTimeout(timer));
-    btn.addEventListener('pointerleave',()=>clearTimeout(timer));
+    function stopRepeat() {
+      clearTimeout(timer);
+      clearInterval(repeatTimer);
+      repeatTimer = null;
+      isLong = false;
+    }
+
+    btn.addEventListener('click', () => { if (!isLong) appliquer(montantCourt); isLong = false; });
+
+    btn.addEventListener('pointerdown', () => {
+      isLong = false;
+      timer = setTimeout(() => {
+        isLong = true;
+        appliquer(montantLong);
+        // Répétition toutes les 250ms
+        repeatTimer = setInterval(() => appliquer(montantLong), 250);
+      }, 500);
+    });
+
+    btn.addEventListener('pointerup',    stopRepeat);
+    btn.addEventListener('pointerleave', stopRepeat);
+    btn.addEventListener('pointercancel',stopRepeat);
   }
 
   function attachMax(inputId, type, champ) {
@@ -311,20 +329,23 @@ if (isAppPage) {
     const input = document.getElementById(inputId);
 
     function maj(val) {
-      const v = Math.max(0, val); // jamais négatif
-      if (champFirestore === 'gils') state.gils = v;
-      else if (champFirestore === 'killCount') state.killCount = v;
+      const v = Math.max(0, val);
+      if (champFirestore === 'killCount') state.killCount = v;
       else if (champFirestore === 'deathCount') state.deathCount = v;
       input.value = v;
       sauvegarder({ [champFirestore]: v });
     }
 
-    let timer=null, isLong=false;
     function attachBtn(btn, dir) {
-      btn.addEventListener('click', ()=>{ if(!isLong){ const cur=parseInt(input.value)||0; maj(cur+dir); } isLong=false; });
-      btn.addEventListener('pointerdown',()=>{ isLong=false; timer=setTimeout(()=>{ isLong=true; const cur=parseInt(input.value)||0; maj(cur+dir*10); },500); });
-      btn.addEventListener('pointerup',   ()=>clearTimeout(timer));
-      btn.addEventListener('pointerleave',()=>clearTimeout(timer));
+      let repeatTimer=null;
+      function doChange(){ const cur=parseInt(input.value)||0; maj(cur+dir); }
+      function stopRepeat(){ clearInterval(repeatTimer); repeatTimer=null; }
+
+      btn.addEventListener('click', doChange);
+      btn.addEventListener('pointerdown',()=>{ repeatTimer=setInterval(doChange,250); });
+      btn.addEventListener('pointerup',    stopRepeat);
+      btn.addEventListener('pointerleave', stopRepeat);
+      btn.addEventListener('pointercancel',stopRepeat);
     }
     attachBtn(minus, -1);
     attachBtn(plus,   1);
@@ -658,7 +679,13 @@ if (isAppPage) {
     return Math.round((f+e+b)*(1+p/100));
   }
 
-  function majTotal(stat) { const el=document.getElementById(`total-${stat}`); if(el) el.textContent=calcTotal(stat); }
+  function majTotal(stat) {
+    const val = calcTotal(stat);
+    const el  = document.getElementById(`total-${stat}`);
+    const elL = document.getElementById(`total-${stat}-left`);
+    if(el)  el.textContent  = val;
+    if(elL) elL.textContent = val;
+  }
 
   function buildStatsTable() {
     const tbody=document.getElementById('stats-tbody'); tbody.innerHTML='';
@@ -690,13 +717,23 @@ if (isAppPage) {
 
       // Attacher les boutons +/-
       tr.querySelectorAll('.stat-btn').forEach(btn=>{
-        let timer=null, isLong=false;
-        btn.addEventListener('click',()=>{
-          if(!isLong){ changeStatBy(btn.dataset.stat, btn.dataset.col, parseInt(btn.dataset.dir)); } isLong=false;
+        let timer=null, repeatTimer=null, isLong=false;
+        const stat=btn.dataset.stat, col=btn.dataset.col, dir=parseInt(btn.dataset.dir);
+
+        function stopRepeat(){ clearTimeout(timer); clearInterval(repeatTimer); repeatTimer=null; isLong=false; }
+
+        btn.addEventListener('click',()=>{ if(!isLong) changeStatBy(stat,col,dir); isLong=false; });
+        btn.addEventListener('pointerdown',()=>{
+          isLong=false;
+          timer=setTimeout(()=>{
+            isLong=true;
+            changeStatBy(stat,col,dir*5);
+            repeatTimer=setInterval(()=>changeStatBy(stat,col,dir*5),250);
+          },500);
         });
-        btn.addEventListener('pointerdown',()=>{ isLong=false; timer=setTimeout(()=>{ isLong=true; changeStatBy(btn.dataset.stat,btn.dataset.col,parseInt(btn.dataset.dir)*5); },500); });
-        btn.addEventListener('pointerup',()=>clearTimeout(timer));
-        btn.addEventListener('pointerleave',()=>clearTimeout(timer));
+        btn.addEventListener('pointerup',    stopRepeat);
+        btn.addEventListener('pointerleave', stopRepeat);
+        btn.addEventListener('pointercancel',stopRepeat);
       });
 
       // Attacher les inputs directs
@@ -746,11 +783,23 @@ if (isAppPage) {
     });
     tbody.querySelectorAll('.inv-qty-btn').forEach(btn=>{
       const i=parseInt(btn.dataset.i), dir=parseInt(btn.dataset.dir);
-      btn.addEventListener('click',()=>{
+      let repeatTimer=null;
+
+      function doChange(){
         const cur=parseInt(state.inventaire[i].quantite)||0;
         state.inventaire[i].quantite=Math.max(0,cur+dir);
         renderInventaire(); sauvegarder({inventaire:state.inventaire});
+      }
+
+      function stopRepeat(){ clearInterval(repeatTimer); repeatTimer=null; }
+
+      btn.addEventListener('click', doChange);
+      btn.addEventListener('pointerdown',()=>{
+        repeatTimer=setInterval(doChange,250);
       });
+      btn.addEventListener('pointerup',    stopRepeat);
+      btn.addEventListener('pointerleave', stopRepeat);
+      btn.addEventListener('pointercancel',stopRepeat);
     });
     tbody.querySelectorAll('.inv-del-btn').forEach(btn=>{
       btn.addEventListener('click',()=>{
@@ -866,14 +915,27 @@ if (isAppPage) {
 
       const kcPlus  = document.getElementById('kc-plus');
       const kcMinus = document.getElementById('kc-minus');
+      // KC + : short press répété 250ms
+      let kcPlusTimer=null;
+      function stopKcPlus(){ clearInterval(kcPlusTimer); kcPlusTimer=null; }
       kcPlus.addEventListener('click', () => updateKC(state.killCount + 1));
+      kcPlus.addEventListener('pointerdown',()=>{ kcPlusTimer=setInterval(()=>updateKC(state.killCount+1),250); });
+      kcPlus.addEventListener('pointerup',    stopKcPlus);
+      kcPlus.addEventListener('pointerleave', stopKcPlus);
+      kcPlus.addEventListener('pointercancel',stopKcPlus);
 
-      // Long press sur − = reset à 0, short press = -1
-      let kcTimer = null, kcLong = false;
-      kcMinus.addEventListener('click',       () => { if (!kcLong) updateKC(state.killCount - 1); kcLong = false; });
-      kcMinus.addEventListener('pointerdown', () => { kcLong = false; kcTimer = setTimeout(() => { kcLong = true; updateKC(0); }, 600); });
-      kcMinus.addEventListener('pointerup',   () => clearTimeout(kcTimer));
-      kcMinus.addEventListener('pointerleave',() => clearTimeout(kcTimer));
+      // KC - : long press = reset à 0, short press répété = -1
+      let kcTimer=null, kcLong=false, kcRepeat=null;
+      function stopKcMinus(){ clearTimeout(kcTimer); clearInterval(kcRepeat); kcRepeat=null; kcLong=false; }
+      kcMinus.addEventListener('click',()=>{ if(!kcLong) updateKC(state.killCount-1); kcLong=false; });
+      kcMinus.addEventListener('pointerdown',()=>{
+        kcLong=false;
+        kcTimer=setTimeout(()=>{ kcLong=true; updateKC(0); },600);
+        kcRepeat=setInterval(()=>{ if(!kcLong) updateKC(state.killCount-1); },250);
+      });
+      kcMinus.addEventListener('pointerup',    stopKcMinus);
+      kcMinus.addEventListener('pointerleave', stopKcMinus);
+      kcMinus.addEventListener('pointercancel',stopKcMinus);
 
       // Death Count — span non éditable, +/- 1 uniquement
       state.deathCount = data.deathCount || 0;
@@ -886,8 +948,19 @@ if (isAppPage) {
         sauvegarder({ deathCount: state.deathCount });
       }
 
-      document.getElementById('dc-plus').addEventListener('click',  () => updateDC(state.deathCount + 1));
-      document.getElementById('dc-minus').addEventListener('click', () => updateDC(state.deathCount - 1));
+      function attachDC(btnId, dir) {
+        const btn=document.getElementById(btnId);
+        let repeatTimer=null;
+        function doChange(){ updateDC(state.deathCount+dir); }
+        function stopRepeat(){ clearInterval(repeatTimer); repeatTimer=null; }
+        btn.addEventListener('click', doChange);
+        btn.addEventListener('pointerdown',()=>{ repeatTimer=setInterval(doChange,250); });
+        btn.addEventListener('pointerup',    stopRepeat);
+        btn.addEventListener('pointerleave', stopRepeat);
+        btn.addEventListener('pointercancel',stopRepeat);
+      }
+      attachDC('dc-plus',  1);
+      attachDC('dc-minus',-1);
 
       // Notes communes — onSnapshot temps réel + bouton Soumettre
       const sharedRef  = doc(db, 'global_notes', 'global');

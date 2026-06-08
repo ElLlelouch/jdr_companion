@@ -107,6 +107,7 @@
         <div class="bar-fill bar-fill--exp" id="exp-bar"></div>
       </div>
     </section>
+    <!-- Note: le layout modulaire est géré en CSS via flex-wrap -->
 
     <!-- Statistiques -->
     <section class="expandable">
@@ -117,6 +118,7 @@
             <thead>
               <tr>
                 <th>Stats</th>
+                <th class="col-total">Total</th>
                 <th class="col-base">Base</th>
                 <th>Équip.</th>
                 <th>Bonus</th>
@@ -138,10 +140,10 @@
           <table class="stats-table equip-table">
             <thead>
               <tr>
-                <th>Slot</th>
-                <th>Item</th>
-                <th>Stats</th>
-                <th>Description</th>
+                <th style="min-width:60px">Slot</th>
+                <th style="min-width:120px">Item</th>
+                <th style="min-width:120px">Stats</th>
+                <th style="min-width:160px">Description</th>
               </tr>
             </thead>
             <tbody id="equip-tbody"></tbody>
