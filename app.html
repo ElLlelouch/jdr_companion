@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fiche Personnage</title>
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
+</head>
+<body class="app-page">
+
+  <div class="overlay"></div>
+
+  <!-- STICKY : PV/PM + Statuts -->
+  <div class="sticky-bars" id="sticky-bars">
+    <div class="bars-inner">
+
+      <!-- PV -->
+      <div class="bar-block">
+        <div class="bar-block-header">
+          <div class="fiche-label">PV</div>
+          <div class="historique-inline" id="historique-hp"></div>
+        </div>
+        <div class="bar-controls">
+          <button class="bar-btn" id="hp-minus">−</button>
+          <div class="bar-values">
+            <span class="bar-current" id="hp-current">0</span>
+            <span class="bar-sep">/</span>
+            <input class="bar-max" id="hp-max" type="number" min="1" value="0" />
+          </div>
+          <button class="bar-btn" id="hp-plus">+</button>
+        </div>
+        <div class="bar-track"><div class="bar-fill bar-fill--hp" id="hp-bar"></div></div>
+      </div>
+
+      <!-- PM -->
+      <div class="bar-block">
+        <div class="bar-block-header">
+          <div class="fiche-label">PM</div>
+          <div class="historique-inline" id="historique-mp"></div>
+        </div>
+        <div class="bar-controls">
+          <button class="bar-btn" id="mp-minus">−</button>
+          <div class="bar-values">
+            <span class="bar-current" id="mp-current">0</span>
+            <span class="bar-sep">/</span>
+            <input class="bar-max" id="mp-max" type="number" min="1" value="0" />
+          </div>
+          <button class="bar-btn" id="mp-plus">+</button>
+        </div>
+        <div class="bar-track"><div class="bar-fill bar-fill--mp" id="mp-bar"></div></div>
+      </div>
+
+    </div>
+
+    <!-- Statuts -->
+    <div class="statuts-sticky" id="statuts-sticky">
+      <div class="statuts-list" id="statuts-list"></div>
+      <button class="statut-add-btn" id="statut-add">+ Statut</button>
+    </div>
+
+  </div>
+
+  <div class="app-container">
+
+    <header class="app-header">
+      <a href="index.html" class="back-btn">← Retour</a>
+      <h2 id="perso-nom">Chargement...</h2>
+      <button class="theme-toggle" id="theme-toggle" title="Mode jour/nuit">🌙</button>
+    </header>
+
+    <!-- Race / Classe -->
+    <section class="fiche">
+      <div class="fiche-row fiche-row--double">
+        <div class="fiche-cell">
+          <div class="fiche-label">Race</div>
+          <input class="fiche-input" id="perso-race" type="text" />
+        </div>
+        <div class="fiche-cell">
+          <div class="fiche-label">Classe</div>
+          <input class="fiche-input" id="perso-classe" type="text" />
+        </div>
+      </div>
+    </section>
+
+    <!-- Expérience -->
+    <section class="fiche fiche--exp">
+      <div class="exp-row">
+        <div class="exp-cell">
+          <span class="fiche-label">Niveau</span>
+          <span class="exp-value" id="exp-level">1</span>
+        </div>
+        <div class="exp-cell exp-cell--right">
+          <span class="fiche-label">Expérience</span>
+          <div class="bar-controls">
+            <button class="bar-btn" id="exp-minus">−</button>
+            <div class="bar-values">
+              <span class="bar-current" id="exp-current">0</span>
+              <span class="bar-sep">/</span>
+              <span class="bar-current" id="exp-needed">100</span>
+            </div>
+            <button class="bar-btn" id="exp-plus">+</button>
+          </div>
+        </div>
+      </div>
+      <div class="bar-track bar-track--exp">
+        <div class="bar-fill bar-fill--exp" id="exp-bar"></div>
+      </div>
+    </section>
+
+    <!-- Statistiques -->
+    <section class="expandable">
+      <button class="expand-toggle" data-target="stats-body">Statistiques <span class="expand-arrow">▾</span></button>
+      <div class="expand-body" id="stats-body">
+        <div class="table-scroll">
+          <table class="stats-table">
+            <thead>
+              <tr>
+                <th>Stats</th>
+                <th class="col-base">Base</th>
+                <th>Équip.</th>
+                <th>Bonus</th>
+                <th>Bonus%</th>
+                <th class="col-total">Total</th>
+              </tr>
+            </thead>
+            <tbody id="stats-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Équipements -->
+    <section class="expandable">
+      <button class="expand-toggle" data-target="equip-body">Équipements <span class="expand-arrow">▾</span></button>
+      <div class="expand-body" id="equip-body">
+        <div class="table-scroll">
+          <table class="stats-table equip-table">
+            <thead>
+              <tr>
+                <th>Slot</th>
+                <th>Item</th>
+                <th>Stats</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody id="equip-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Inventaire -->
+    <section class="expandable">
+      <button class="expand-toggle" data-target="inventory-body">Inventaire <span class="expand-arrow">▾</span></button>
+      <div class="expand-body" id="inventory-body">
+        <div class="table-scroll">
+          <table class="stats-table">
+            <thead>
+              <tr>
+                <th style="width:5rem">Qté</th>
+                <th style="width:25%">Objet</th>
+                <th>Description</th>
+                <th style="width:2rem"></th>
+              </tr>
+            </thead>
+            <tbody id="inv-tbody"></tbody>
+          </table>
+        </div>
+        <button class="add-btn" id="inv-add">+ Ajouter un objet</button>
+      </div>
+    </section>
+
+    <!-- Gils / KC / DC / Pouvoir -->
+    <section class="fiche">
+      <table class="cinq-cases">
+        <colgroup>
+          <col class="cinq-col" />
+          <col class="cinq-col" />
+          <col class="cinq-col" />
+        </colgroup>
+        <tbody>
+          <tr>
+            <!-- A1 : Gils -->
+            <td class="cinq-td">
+              <div class="fiche-label">Gils</div>
+              <input class="cinq-input no-spin" id="gils-val" type="number" min="0" value="0" />
+            </td>
+            <!-- A2 : Kill Count -->
+            <td class="cinq-td">
+              <div class="fiche-label">Kill Count</div>
+              <div class="cinq-counter">
+                <button class="counter-btn" id="kc-minus">−</button>
+                <span class="cinq-val" id="kc-val">0</span>
+                <button class="counter-btn" id="kc-plus">+</button>
+              </div>
+            </td>
+            <!-- A3 : Death Count -->
+            <td class="cinq-td">
+              <div class="fiche-label">Death Count</div>
+              <div class="cinq-counter">
+                <button class="counter-btn" id="dc-minus">−</button>
+                <span class="cinq-val" id="dc-val">0</span>
+                <button class="counter-btn" id="dc-plus">+</button>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <!-- B1 : Pouvoir Divin nom -->
+            <td class="cinq-td cinq-td--border-top">
+              <div class="fiche-label">Pouvoir Divin</div>
+              <input class="cinq-input cinq-input--nom" id="pouvoir-nom" type="text" maxlength="15" placeholder="Nom..." />
+            </td>
+            <!-- B2-B3 : Effet (colspan=2) -->
+            <td class="cinq-td cinq-td--border-top" colspan="2">
+              <div class="fiche-label">Effet</div>
+              <input class="cinq-input" id="pouvoir-desc" type="text" placeholder="Description de l'effet..." />
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Compétences -->
+    <section class="expandable">
+      <button class="expand-toggle" data-target="comp-body">Compétences <span class="expand-arrow">▾</span></button>
+      <div class="expand-body" id="comp-body">
+        <div class="table-scroll">
+          <table class="stats-table">
+            <thead>
+              <tr>
+                <th style="width:20%">Compétence</th>
+                <th>Description</th>
+                <th style="width:3rem">PM</th>
+                <th style="width:7rem">Maîtrise</th>
+                <th style="width:2rem"></th>
+              </tr>
+            </thead>
+            <tbody id="comp-tbody"></tbody>
+          </table>
+        </div>
+        <button class="add-btn" id="comp-add">+ Ajouter une compétence</button>
+      </div>
+    </section>
+
+    <!-- Notes -->
+    <section class="expandable">
+      <button class="expand-toggle" data-target="notes-body">Notes <span class="expand-arrow">▾</span></button>
+      <div class="expand-body" id="notes-body">
+        <textarea class="notes-area" id="notes-field" placeholder="Vos notes ici..."></textarea>
+      </div>
+    </section>
+
+    <!-- Notes communes -->
+    <section class="expandable">
+      <button class="expand-toggle" data-target="shared-notes-body">Notes communes <span class="expand-arrow">▾</span></button>
+      <div class="expand-body" id="shared-notes-body">
+        <p class="shared-notes-info">✦ Partagées entre tous les joueurs — cliquez Soumettre pour mettre à jour.</p>
+        <textarea class="notes-area notes-area--shared" id="shared-notes-field" placeholder="Notes visibles par tout le monde..."></textarea>
+        <button class="add-btn shared-submit-btn" id="shared-notes-submit">Soumettre</button>
+        <p class="shared-notes-status hidden" id="shared-notes-status">✓ Notes mises à jour !</p>
+      </div>
+    </section>
+
+  </div>
+
+
+
+  <!-- POPUP LEVEL UP -->
+  <div class="levelup-overlay hidden" id="levelup-overlay">
+    <div class="levelup-box">
+      <div class="levelup-stars">✦ ✦ ✦</div>
+      <h2 class="levelup-title">Niveau supérieur !</h2>
+      <p class="levelup-level" id="levelup-level">Niveau 2</p>
+      <button class="levelup-close" id="levelup-close">Continuer</button>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

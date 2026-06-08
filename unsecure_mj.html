@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mode MJ — Les Zégarés</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="unsecure_mj.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
+  <script>
+    if (localStorage.getItem('theme') === 'light') document.documentElement.classList.add('light-mode');
+  </script>
+</head>
+<body class="mj-page">
+
+  <div class="overlay"></div>
+
+  <!-- ÉCRAN MOT DE PASSE -->
+  <div class="mj-lock" id="mj-lock">
+    <a href="index.html" class="mj-lock-back">← Retour</a>
+    <div class="mj-lock-box">
+      <h1 class="mj-lock-title">Mode MJ</h1>
+      <div class="divider"></div>
+      <p class="mj-lock-sub">Accès restreint</p>
+      <input class="mj-lock-input" id="mj-password" type="password" placeholder="Mot de passe..." />
+      <button class="mj-lock-btn" id="mj-unlock">Entrer</button>
+      <p class="mj-lock-error hidden" id="mj-pw-error">Mot de passe incorrect.</p>
+    </div>
+  </div>
+
+  <!-- CONTENU PRINCIPAL -->
+  <div class="mj-main hidden" id="mj-main">
+
+    <header class="mj-header">
+      <a href="index.html" class="back-btn">← Retour</a>
+      <h1 class="mj-title">Mode MJ</h1>
+      <div class="mj-header-right">
+        <button class="theme-toggle" id="theme-toggle" title="Mode jour/nuit">🌙</button>
+      </div>
+    </header>
+
+    <nav class="mj-tabs">
+      <button class="mj-tab active" data-tab="tab-combat">⚔️ Combat</button>
+      <button class="mj-tab" data-tab="tab-items">🗡️ Items</button>
+      <button class="mj-tab" data-tab="tab-notes">📜 Notes</button>
+    </nav>
+
+    <!-- ===================== -->
+    <!-- ONGLET COMBAT         -->
+    <!-- ===================== -->
+    <div class="mj-tab-content active" id="tab-combat">
+
+      <!-- ACTIONS COMBAT -->
+      <div class="session-summary" id="session-summary">
+        <button class="mj-btn-sm" id="btn-nouveau-combat">↺ Nouveau combat</button>
+      </div>
+
+      <!-- COMBATTANTS -->
+      <section class="mj-section">
+        <div class="mj-section-header">
+          <h2 class="mj-section-title">Initiative & Combattants</h2>
+          <div style="display:flex;gap:0.5rem">
+            <button class="mj-btn-sm mj-btn-sm--ally" id="btn-add-ally">+ Allié</button>
+            <button class="mj-btn-sm mj-btn-sm--enemy" id="btn-add-ennemi">+ Ennemi</button>
+          </div>
+        </div>
+
+        <div class="initiative-legend">
+          <span class="legend-pj">■ Joueur</span>
+          <span class="legend-ally">■ Allié</span>
+          <span class="legend-ennemi">■ Ennemi</span>
+        </div>
+
+        <div id="initiative-container"></div>
+      </section>
+
+      <div class="mj-cols">
+
+        <!-- CALCULATEUR -->
+        <section class="mj-section">
+          <h2 class="mj-section-title">Calculateur de dégâts</h2>
+          <p class="calc-hint">Cliquez sur une stat ATK/MAG ou DEF/RES pour la charger ici.</p>
+          <div class="calc-grid">
+            <div class="calc-field">
+              <label class="calc-label">ATK / MAG</label>
+              <input class="calc-input no-spin" id="calc-atk" type="number" value="0" />
+            </div>
+            <div class="calc-field">
+              <label class="calc-label">× Mult. ATK</label>
+              <input class="calc-input no-spin" id="calc-mult-atk" type="number" value="1" step="0.1" />
+            </div>
+            <div class="calc-field">
+              <label class="calc-label">DEF / RES</label>
+              <input class="calc-input no-spin" id="calc-def" type="number" value="0" />
+            </div>
+            <div class="calc-field">
+              <label class="calc-label">× Mult. DEF</label>
+              <input class="calc-input no-spin" id="calc-mult-def" type="number" value="1" step="0.1" />
+            </div>
+            <div class="calc-field calc-field--full">
+              <label class="calc-label">Multiplicateur final</label>
+              <input class="calc-input no-spin" id="calc-mult" type="number" value="1" step="0.1" />
+            </div>
+          </div>
+          <button class="mj-btn" id="calc-btn">Calculer</button>
+          <div class="calc-results" id="calc-results">
+            <div class="calc-result-row calc-result-row--total">
+              <span class="calc-result-label">Dégâts</span>
+              <span class="calc-result-val" id="calc-res-total">—</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- CHRONO -->
+        <section class="mj-section">
+          <h2 class="mj-section-title">Chronomètre</h2>
+          <div class="chrono-display" id="chrono-display">00:00</div>
+          <div class="chrono-btns">
+            <button class="mj-btn" id="chrono-start">▶ Start</button>
+            <button class="mj-btn mj-btn--dim" id="chrono-stop">⏸ Pause</button>
+            <button class="mj-btn mj-btn--dim" id="chrono-reset">↺ Reset</button>
+          </div>
+          <div class="chrono-presets">
+            <span class="chrono-label">Présets :</span>
+            <button class="preset-btn" data-seconds="30">30s</button>
+            <button class="preset-btn" data-seconds="60">1min</button>
+            <button class="preset-btn" data-seconds="120">2min</button>
+            <button class="preset-btn" data-seconds="300">5min</button>
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+    <!-- ===================== -->
+    <!-- ONGLET ITEMS          -->
+    <!-- ===================== -->
+    <div class="mj-tab-content hidden" id="tab-items">
+      <section class="mj-section">
+        <div class="mj-section-header">
+          <h2 class="mj-section-title">Gestion des Items</h2>
+          <button class="mj-btn-sm" id="btn-new-item">+ Nouvel item</button>
+        </div>
+        <div class="items-filters">
+          <input class="items-search" id="items-search" type="text" placeholder="Rechercher un item..." />
+          <select class="items-filter-type" id="items-filter-type">
+            <option value="">Tous les types</option>
+            <option value="main">Main</option>
+            <option value="helmet">Casque</option>
+            <option value="armor">Armure</option>
+            <option value="boots">Bottes</option>
+            <option value="gloves">Gants</option>
+            <option value="jewel">Bijou</option>
+          </select>
+        </div>
+        <div class="table-scroll">
+          <table class="stats-table items-table">
+            <thead>
+              <tr>
+                <th>Nom</th><th>Type</th><th>ATK</th><th>DEF</th>
+                <th>MAG</th><th>RES</th><th>AGI</th><th>Description</th><th></th><th></th>
+              </tr>
+            </thead>
+            <tbody id="items-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===================== -->
+    <!-- ONGLET NOTES          -->
+    <!-- ===================== -->
+    <div class="mj-tab-content hidden" id="tab-notes">
+      <div class="notes-grid">
+
+        <section class="mj-section">
+          <h2 class="mj-section-title">Notes de session</h2>
+          <textarea class="notes-area notes-area--mj" id="mj-notes-1" placeholder="Notes générales..."></textarea>
+        </section>
+
+        <section class="mj-section">
+          <h2 class="mj-section-title">Intrigues & PNJs</h2>
+          <textarea class="notes-area notes-area--mj" id="mj-notes-2" placeholder="PNJs, intrigues, secrets..."></textarea>
+        </section>
+
+        <section class="mj-section" style="grid-column:1/-1">
+          <h2 class="mj-section-title">Loot & Récompenses</h2>
+          <textarea class="notes-area notes-area--mj" id="mj-notes-3" placeholder="Trésors, XP à distribuer..."></textarea>
+        </section>
+
+        <!-- Notes communes — lecture seule MJ -->
+        <section class="mj-section" style="grid-column:1/-1">
+          <div class="mj-section-header">
+            <h2 class="mj-section-title">Notes communes (joueurs)</h2>
+            <span class="mj-live-badge">● Live</span>
+          </div>
+          <textarea class="notes-area notes-area--mj notes-area--readonly" id="shared-notes-view" placeholder="Aucune note commune pour l'instant..." readonly></textarea>
+        </section>
+
+      </div>
+
+      <!-- ENVOYER UN MESSAGE -->
+      <section class="mj-section">
+        <h2 class="mj-section-title">Envoyer un message à un joueur</h2>
+        <div class="msg-form">
+          <select class="calc-input" id="msg-joueur-select">
+            <option value="">— Choisir un joueur —</option>
+          </select>
+          <textarea class="calc-input msg-textarea" id="msg-content" placeholder="Votre message..."></textarea>
+          <button class="mj-btn" id="msg-send">Envoyer</button>
+          <p class="msg-status hidden" id="msg-status">✓ Message envoyé !</p>
+        </div>
+      </section>
+    </div>
+
+  </div><!-- /mj-main -->
+
+  <!-- MODAL ENNEMI -->
+  <div class="modal-overlay hidden" id="modal-ennemi">
+    <div class="modal-box">
+      <h3 class="modal-title" id="modal-ennemi-title">Ajouter un ennemi</h3>
+      <div class="modal-fields">
+        <div class="calc-field">
+          <label class="calc-label">Nom</label>
+          <input class="calc-input" id="ennemi-nom" type="text" placeholder="Gobelin..." />
+        </div>
+        <div class="calc-field">
+          <label class="calc-label">PV Max</label>
+          <input class="calc-input no-spin" id="ennemi-hp-max" type="number" value="50" />
+        </div>
+        <div class="calc-field">
+          <label class="calc-label">AGI (initiative)</label>
+          <input class="calc-input no-spin" id="ennemi-agi" type="number" value="50" />
+        </div>
+        <div class="calc-field">
+          <label class="calc-label">ATK</label>
+          <input class="calc-input no-spin" id="ennemi-atk" type="number" value="0" />
+        </div>
+        <div class="calc-field">
+          <label class="calc-label">DEF</label>
+          <input class="calc-input no-spin" id="ennemi-def" type="number" value="0" />
+        </div>
+        <div class="calc-field">
+          <label class="calc-label">MAG</label>
+          <input class="calc-input no-spin" id="ennemi-mag" type="number" value="0" />
+        </div>
+        <div class="calc-field">
+          <label class="calc-label">RES</label>
+          <input class="calc-input no-spin" id="ennemi-res" type="number" value="0" />
+        </div>
+      </div>
+      <div class="modal-btns">
+        <button class="mj-btn" id="ennemi-confirm">Ajouter</button>
+        <button class="mj-btn mj-btn--dim" id="ennemi-cancel">Annuler</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL ITEM -->
+  <div class="modal-overlay hidden" id="modal-item">
+    <div class="modal-box modal-box--wide">
+      <h3 class="modal-title" id="modal-item-title">Nouvel item</h3>
+      <div class="modal-fields modal-fields--grid">
+        <div class="calc-field"><label class="calc-label">Nom</label><input class="calc-input" id="item-nom" type="text" /></div>
+        <div class="calc-field"><label class="calc-label">Type</label>
+          <select class="calc-input" id="item-type">
+            <option value="main">Main</option><option value="helmet">Casque</option>
+            <option value="armor">Armure</option><option value="boots">Bottes</option>
+            <option value="gloves">Gants</option><option value="jewel">Bijou</option>
+          </select>
+        </div>
+        <div class="calc-field"><label class="calc-label">ATK</label><input class="calc-input no-spin" id="item-atk" type="number" value="0" /></div>
+        <div class="calc-field"><label class="calc-label">DEF</label><input class="calc-input no-spin" id="item-def" type="number" value="0" /></div>
+        <div class="calc-field"><label class="calc-label">MAG</label><input class="calc-input no-spin" id="item-mag" type="number" value="0" /></div>
+        <div class="calc-field"><label class="calc-label">RES</label><input class="calc-input no-spin" id="item-resi" type="number" value="0" /></div>
+        <div class="calc-field"><label class="calc-label">AGI</label><input class="calc-input no-spin" id="item-agi" type="number" value="0" /></div>
+        <div class="calc-field calc-field--full"><label class="calc-label">Description</label><input class="calc-input" id="item-desc" type="text" /></div>
+      </div>
+      <div class="modal-btns">
+        <button class="mj-btn" id="item-confirm">Sauvegarder</button>
+        <button class="mj-btn mj-btn--dim" id="item-cancel">Annuler</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Theme
+    const _btn = document.getElementById('theme-toggle');
+    if (localStorage.getItem('theme') === 'light') { document.body.classList.add('light-mode'); _btn.textContent = '☀️'; }
+    _btn.addEventListener('click', () => {
+      const l = document.body.classList.toggle('light-mode');
+      _btn.textContent = l ? '☀️' : '🌙';
+      localStorage.setItem('theme', l ? 'light' : 'dark');
+    });
+  </script>
+  <script type="module" src="unsecure_mj.js"></script>
+</body>
+</html>

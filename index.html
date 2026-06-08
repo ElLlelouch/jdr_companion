@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JDR Companion</title>
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
+  <script>
+    // Appliqué immédiatement pour éviter le flash
+    if (localStorage.getItem('theme') === 'light') document.documentElement.classList.add('light-mode');
+  </script>
+</head>
+<body class="index-page">
+
+  <div class="overlay"></div>
+
+  <button class="theme-toggle theme-toggle--fixed" id="theme-toggle" title="Mode jour/nuit">🌙</button>
+
+  <main class="hero">
+    <div class="title-block">
+      <h1>Les Zégarés</h1>
+      <p class="subtitle">ou les Zéclatés, au choix...</p>
+      <div class="divider"></div>
+    </div>
+
+    <div class="select-block">
+      <label for="perso-select">Choisissez votre personnage</label>
+      <div class="select-wrapper">
+        <select id="perso-select">
+          <option value="">— Sélectionner —</option>
+        </select>
+        <span class="select-arrow">▾</span>
+      </div>
+      <button id="enter-btn" disabled>Entrer</button>
+    </div>
+
+    <p class="loading-msg hidden" id="loading-msg">Chargement...</p>
+
+    <!-- Accès MJ -->
+    <div class="mj-access">
+      <a class="mj-access-link" href="unsecure_mj.html">Accès MJ</a>
+    </div>
+  </main>
+
+  <script type="module" src="app.js"></script>
+  <script>
+    // Theme toggle
+    const btn = document.getElementById('theme-toggle');
+    if (localStorage.getItem('theme') === 'light') {
+      document.body.classList.add('light-mode');
+      btn.textContent = '☀️';
+    }
+    btn.addEventListener('click', () => {
+      const isLight = document.body.classList.toggle('light-mode');
+      btn.textContent = isLight ? '☀️' : '🌙';
+      localStorage.setItem('theme', isLight ? 'light' : 'dark');
+    });
+  </script>
+</body>
+</html>
