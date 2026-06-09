@@ -1890,3 +1890,25 @@ body.light-mode .levelup-box {
   min-width: 140px;
   max-width: 220px;
 }
+
+/* =====================
+   COMPÉTENCES — cellules auto
+======================== */
+.comp-auto-cell {
+  font-style: italic;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+/* Tableau compétences — scroll horizontal */
+#comp-body .table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+#comp-body .stats-table {
+  min-width: 520px;
+}

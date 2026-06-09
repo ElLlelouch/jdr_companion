@@ -69,7 +69,9 @@ if (isAppPage) {
   const params  = new URLSearchParams(window.location.search);
   const persoId = params.get('id');
   let docRef;
-  const itemsCache = {};
+  const itemsCache  = {};
+  let racesCache    = null;  // { id: {nom, classes:[{nom,abr}]} }
+  let skillsCache   = [];    // toutes les skills Firebase
 
   const SLOTS = [
     { key: 'main1Item',  label: 'Main 1',  type: 'main'   },
@@ -429,6 +431,109 @@ if (isAppPage) {
 
       list.appendChild(item);
     });
+  }
+
+  // =====================
+  // RACE / CLASSE DROPDOWNS
+  // =====================
+  function buildRaceDropdown(currentRace, currentClasse) {
+    const raceInput    = document.getElementById('perso-race');
+    const classeInput  = document.getElementById('perso-classe');
+    const raceDropdown = document.getElementById('race-dropdown');
+    const classeDropdown = document.getElementById('classe-dropdown');
+
+    // Remplir race dropdown
+    function renderRaceDropdown(filter) {
+      raceDropdown.innerHTML = '';
+      const races = Object.values(racesCache)
+        .filter(r => r.nom.toLowerCase().includes(filter.toLowerCase()))
+        .sort((a,b) => a.nom.localeCompare(b.nom));
+      races.forEach(race => {
+        const opt = document.createElement('div');
+        opt.className = 'equip-option';
+        opt.textContent = race.nom;
+        opt.addEventListener('mousedown', () => {
+          raceInput.value = race.nom;
+          raceDropdown.classList.add('hidden');
+          sauvegarder({ race: race.nom, classe: '' });
+          classeInput.value = '';
+          buildClasseDropdown(race, '');
+        });
+        raceDropdown.appendChild(opt);
+      });
+    }
+
+    function positionRaceDropdown() {
+      const rect = raceInput.getBoundingClientRect();
+      raceDropdown.style.position  = 'fixed';
+      raceDropdown.style.top       = (rect.bottom + 2) + 'px';
+      raceDropdown.style.left      = rect.left + 'px';
+      raceDropdown.style.width     = Math.max(rect.width, 160) + 'px';
+      raceDropdown.style.zIndex    = '9999';
+      raceDropdown.style.maxHeight = Math.min(220, window.innerHeight - rect.bottom - 8) + 'px';
+    }
+
+    raceInput.value = currentRace;
+    raceInput.addEventListener('focus', () => { renderRaceDropdown(raceInput.value); positionRaceDropdown(); raceDropdown.classList.remove('hidden'); });
+    raceInput.addEventListener('input', () => { renderRaceDropdown(raceInput.value); positionRaceDropdown(); });
+    raceInput.addEventListener('blur',  () => setTimeout(() => raceDropdown.classList.add('hidden'), 150));
+    window.addEventListener('scroll', () => { if (!raceDropdown.classList.contains('hidden')) positionRaceDropdown(); }, { passive: true });
+
+    // Trouver la race courante
+    const currentRaceObj = Object.values(racesCache).find(r => r.nom === currentRace) || null;
+    buildClasseDropdown(currentRaceObj, currentClasse);
+  }
+
+  function buildClasseDropdown(race, currentClasse) {
+    const classeInput    = document.getElementById('perso-classe');
+    const classeDropdown = document.getElementById('classe-dropdown');
+    classeInput.value    = currentClasse;
+
+    function renderClasseDropdown(filter) {
+      classeDropdown.innerHTML = '';
+      const classes = race ? race.classes.filter(c => c.nom.toLowerCase().includes(filter.toLowerCase())) : [];
+      if (!classes.length) {
+        const empty = document.createElement('div');
+        empty.className   = 'equip-option';
+        empty.textContent = race ? 'Aucune classe trouvée' : 'Sélectionnez une race d'abord';
+        empty.style.color = 'var(--text-dim)';
+        classeDropdown.appendChild(empty);
+        return;
+      }
+      classes.forEach(cls => {
+        const opt = document.createElement('div');
+        opt.className   = 'equip-option';
+        opt.textContent = `${cls.nom} (${cls.abr})`;
+        opt.addEventListener('mousedown', () => {
+          classeInput.value = cls.nom;
+          classeDropdown.classList.add('hidden');
+          sauvegarder({ classe: cls.nom });
+          // Reconstruire le dropdown compétences avec la nouvelle classe
+          renderCompetences();
+        });
+        classeDropdown.appendChild(opt);
+      });
+    }
+
+    function positionClasseDropdown() {
+      const rect = classeInput.getBoundingClientRect();
+      classeDropdown.style.position  = 'fixed';
+      classeDropdown.style.top       = (rect.bottom + 2) + 'px';
+      classeDropdown.style.left      = rect.left + 'px';
+      classeDropdown.style.width     = Math.max(rect.width, 160) + 'px';
+      classeDropdown.style.zIndex    = '9999';
+      classeDropdown.style.maxHeight = Math.min(220, window.innerHeight - rect.bottom - 8) + 'px';
+    }
+
+    // Nettoyer anciens listeners en recréant l'élément
+    const newInput = classeInput.cloneNode(true);
+    classeInput.parentNode.replaceChild(newInput, classeInput);
+    newInput.value = currentClasse;
+
+    newInput.addEventListener('focus', () => { renderClasseDropdown(newInput.value); positionClasseDropdown(); classeDropdown.classList.remove('hidden'); });
+    newInput.addEventListener('input', () => { renderClasseDropdown(newInput.value); positionClasseDropdown(); });
+    newInput.addEventListener('blur',  () => setTimeout(() => classeDropdown.classList.add('hidden'), 150));
+    window.addEventListener('scroll', () => { if (!classeDropdown.classList.contains('hidden')) positionClasseDropdown(); }, { passive: true });
   }
 
   // =====================
