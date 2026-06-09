@@ -40,15 +40,28 @@
     </header>
 
     <nav class="mj-tabs">
-      <button class="mj-tab active" data-tab="tab-combat">⚔️ Combat</button>
+      <button class="mj-tab active" data-tab="tab-apercu">👁️ Aperçu</button>
+      <button class="mj-tab" data-tab="tab-combat">⚔️ Combat</button>
+      <button class="mj-tab" data-tab="tab-generateur">⚗️ Générateur</button>
       <button class="mj-tab" data-tab="tab-items">🗡️ Items</button>
+      <button class="mj-tab" data-tab="tab-skills">✨ Compétences</button>
+      <button class="mj-tab" data-tab="tab-statuts">🔮 Statuts</button>
       <button class="mj-tab" data-tab="tab-notes">📜 Notes</button>
     </nav>
 
     <!-- ===================== -->
+    <!-- ONGLET APERÇU         -->
+    <!-- ===================== -->
+    <div class="mj-tab-content active" id="tab-apercu">
+      <div class="apercu-grid" id="apercu-grid">
+        <p class="placeholder-text" style="padding:1rem">Chargement des joueurs...</p>
+      </div>
+    </div>
+
+    <!-- ===================== -->
     <!-- ONGLET COMBAT         -->
     <!-- ===================== -->
-    <div class="mj-tab-content active" id="tab-combat">
+    <div class="mj-tab-content hidden" id="tab-combat">
 
       <!-- ACTIONS COMBAT -->
       <div class="session-summary" id="session-summary">
@@ -133,6 +146,127 @@
     </div>
 
     <!-- ===================== -->
+    <!-- ONGLET GÉNÉRATEUR     -->
+    <!-- ===================== -->
+    <div class="mj-tab-content hidden" id="tab-generateur">
+      <div class="mj-cols">
+
+        <!-- PANNEAU GAUCHE : Paramètres -->
+        <section class="mj-section">
+          <h2 class="mj-section-title">Paramètres</h2>
+
+          <div class="calc-field" style="margin-bottom:0.75rem">
+            <label class="calc-label">Type de monstre</label>
+            <select class="calc-input" id="gen-type">
+              <option value="">— Choisir —</option>
+              <option value="personnage">Personnage</option>
+            </select>
+          </div>
+
+          <!-- Race/Classe si Personnage -->
+          <div id="gen-humanoid-fields" style="display:none">
+            <div class="calc-field" style="margin-bottom:0.75rem">
+              <label class="calc-label">Race</label>
+              <div style="position:relative">
+                <input class="calc-input" id="gen-race-input" type="text" placeholder="— Choisir —" />
+                <div class="equip-dropdown hidden" id="gen-race-dropdown"></div>
+              </div>
+            </div>
+            <div class="calc-field" style="margin-bottom:0.75rem">
+              <label class="calc-label">Classe</label>
+              <div style="position:relative">
+                <input class="calc-input" id="gen-classe-input" type="text" placeholder="— Choisir —" />
+                <div class="equip-dropdown hidden" id="gen-classe-dropdown"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="calc-field" style="margin-bottom:0.75rem">
+            <label class="calc-label">Niveau</label>
+            <input class="calc-input no-spin" id="gen-level" type="number" value="1" min="1" />
+          </div>
+
+          <div class="calc-field" style="margin-bottom:1rem">
+            <label class="calc-label">Nom</label>
+            <input class="calc-input" id="gen-name" type="text" placeholder="Nom du monstre..." />
+          </div>
+
+          <button class="mj-btn" id="gen-btn" disabled>⚗️ Générer</button>
+        </section>
+
+        <!-- PANNEAU DROIT : Résultat -->
+        <section class="mj-section hidden" id="gen-result">
+          <div class="gen-result-header">
+            <div>
+              <div class="gen-result-name" id="gen-result-name">—</div>
+              <div class="gen-result-sub"  id="gen-result-sub">—</div>
+            </div>
+            <div class="gen-result-level">Niv. <span id="gen-result-level">—</span></div>
+          </div>
+
+          <!-- PV/PM -->
+          <div class="gen-bars">
+            <div class="gen-bar-row">
+              <span class="gen-bar-label">PV</span>
+              <input class="calc-input no-spin gen-stat-input" id="gen-pv" type="number" />
+            </div>
+            <div class="gen-bar-row">
+              <span class="gen-bar-label">PM</span>
+              <input class="calc-input no-spin gen-stat-input" id="gen-pm" type="number" />
+            </div>
+          </div>
+
+          <!-- Stats -->
+          <div class="gen-stats-grid">
+            <div class="gen-stat-cell">
+              <span class="gen-stat-label">ATK</span>
+              <input class="calc-input no-spin gen-stat-input" id="gen-atk" type="number" />
+            </div>
+            <div class="gen-stat-cell">
+              <span class="gen-stat-label">DEF</span>
+              <input class="calc-input no-spin gen-stat-input" id="gen-def" type="number" />
+            </div>
+            <div class="gen-stat-cell">
+              <span class="gen-stat-label">MAG</span>
+              <input class="calc-input no-spin gen-stat-input" id="gen-mag" type="number" />
+            </div>
+            <div class="gen-stat-cell">
+              <span class="gen-stat-label">RES</span>
+              <input class="calc-input no-spin gen-stat-input" id="gen-res" type="number" />
+            </div>
+            <div class="gen-stat-cell">
+              <span class="gen-stat-label">AGI</span>
+              <input class="calc-input no-spin gen-stat-input" id="gen-agi" type="number" />
+            </div>
+          </div>
+
+          <!-- EXP -->
+          <div class="gen-exp-row">
+            <span class="gen-stat-label">EXP donnée</span>
+            <span class="gen-exp-val" id="gen-exp">—</span>
+          </div>
+
+          <!-- Compétences du monstre -->
+          <div class="gen-skills-section">
+            <div class="mj-section-header" style="margin-bottom:0.5rem">
+              <span class="gen-stat-label">Compétences</span>
+              <button class="mj-btn-sm" id="gen-add-skill">+ Ajouter</button>
+            </div>
+            <div id="gen-skills-list"></div>
+          </div>
+
+          <!-- Actions -->
+          <div class="gen-actions">
+            <button class="mj-btn mj-btn-sm--ally" id="gen-add-ally">+ Allié</button>
+            <button class="mj-btn mj-btn-sm--enemy" id="gen-add-enemy">+ Ennemi</button>
+          </div>
+          <p class="gen-added-msg hidden" id="gen-added-msg"></p>
+        </section>
+
+      </div>
+    </div>
+
+    <!-- ===================== -->
     <!-- ONGLET ITEMS          -->
     <!-- ===================== -->
     <div class="mj-tab-content hidden" id="tab-items">
@@ -165,6 +299,147 @@
           </table>
         </div>
       </section>
+    </div>
+
+    <!-- ===================== -->
+    <!-- ONGLET SKILLS         -->
+    <!-- ===================== -->
+    <div class="mj-tab-content hidden" id="tab-skills">
+      <section class="mj-section">
+        <div class="mj-section-header">
+          <h2 class="mj-section-title">Gestion des Compétences</h2>
+          <button class="mj-btn-sm" id="btn-new-skill">+ Nouvelle compétence</button>
+        </div>
+        <div class="items-filters">
+          <input class="items-search" id="skills-search" type="text" placeholder="Rechercher une compétence..." />
+          <select class="items-filter-type" id="skills-filter-class">
+            <option value="">Toutes les classes</option>
+          </select>
+        </div>
+        <div class="table-scroll">
+          <table class="stats-table skills-table">
+            <thead>
+              <tr>
+                <th>Nom</th>
+                <th>Classes</th>
+                <th>Portée</th>
+                <th>PM</th>
+                <th>PC</th>
+                <th>Description</th>
+                <th></th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="skills-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- MODAL SKILL -->
+    <div class="modal-overlay hidden" id="modal-skill">
+      <div class="modal-box modal-box--wide">
+        <h3 class="modal-title" id="modal-skill-title">Nouvelle compétence</h3>
+        <div class="modal-fields modal-fields--grid">
+          <div class="calc-field calc-field--full">
+            <label class="calc-label">Nom</label>
+            <input class="calc-input" id="skill-nom" type="text" />
+          </div>
+          <div class="calc-field calc-field--full">
+            <label class="calc-label">Classes (sélection multiple)</label>
+            <div class="skill-class-wrapper">
+              <input class="calc-input" id="skill-class-input" type="text" placeholder="Rechercher une classe..." />
+              <div class="equip-dropdown hidden" id="skill-class-dropdown"></div>
+            </div>
+            <div class="skill-class-selected" id="skill-class-selected"></div>
+          </div>
+          <div class="calc-field">
+            <label class="calc-label">Portée</label>
+            <input class="calc-input" id="skill-range" type="text" />
+          </div>
+          <div class="calc-field">
+            <label class="calc-label">PM</label>
+            <input class="calc-input no-spin" id="skill-pm" type="number" value="0" />
+          </div>
+          <div class="calc-field">
+            <label class="calc-label">PC</label>
+            <input class="calc-input no-spin" id="skill-pc" type="number" value="0" />
+          </div>
+          <div class="calc-field">
+            <label class="calc-label">PC Note (si PC=0)</label>
+            <input class="calc-input" id="skill-pc-note" type="text" placeholder="ex: Blanc, Maitrise..." />
+          </div>
+          <div class="calc-field calc-field--full">
+            <label class="calc-label">Description</label>
+            <textarea class="calc-input" id="skill-desc" rows="3" style="resize:vertical"></textarea>
+          </div>
+        </div>
+        <div class="modal-btns">
+          <button class="mj-btn" id="skill-confirm">Sauvegarder</button>
+          <button class="mj-btn mj-btn--dim" id="skill-cancel">Annuler</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== -->
+    <!-- ONGLET STATUTS        -->
+    <!-- ===================== -->
+    <div class="mj-tab-content hidden" id="tab-statuts">
+      <section class="mj-section">
+        <div class="mj-section-header">
+          <h2 class="mj-section-title">Gestion des Statuts</h2>
+          <button class="mj-btn-sm" id="btn-new-statut">+ Nouveau statut</button>
+        </div>
+        <div class="items-filters">
+          <input class="items-search" id="statuts-search" type="text" placeholder="Rechercher un statut..." />
+          <select class="items-filter-type" id="statuts-filter-type">
+            <option value="">Tous</option>
+            <option value="pos">Positifs</option>
+            <option value="neg">Négatifs</option>
+          </select>
+        </div>
+        <div class="table-scroll">
+          <table class="stats-table statuts-table">
+            <thead>
+              <tr>
+                <th>Nom</th>
+                <th>Description</th>
+                <th>Type</th>
+                <th></th><th></th>
+              </tr>
+            </thead>
+            <tbody id="statuts-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- MODAL STATUT -->
+    <div class="modal-overlay hidden" id="modal-statut">
+      <div class="modal-box">
+        <h3 class="modal-title" id="modal-statut-title">Nouveau statut</h3>
+        <div class="modal-fields">
+          <div class="calc-field">
+            <label class="calc-label">Nom</label>
+            <input class="calc-input" id="statut-nom-input" type="text" />
+          </div>
+          <div class="calc-field">
+            <label class="calc-label">Description</label>
+            <textarea class="calc-input" id="statut-desc-input" rows="2" style="resize:vertical"></textarea>
+          </div>
+          <div class="calc-field">
+            <label class="calc-label">Type</label>
+            <select class="calc-input" id="statut-type-input">
+              <option value="pos">Positif</option>
+              <option value="neg">Négatif</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-btns">
+          <button class="mj-btn" id="statut-confirm">Sauvegarder</button>
+          <button class="mj-btn mj-btn--dim" id="statut-cancel">Annuler</button>
+        </div>
+      </div>
     </div>
 
     <!-- ===================== -->

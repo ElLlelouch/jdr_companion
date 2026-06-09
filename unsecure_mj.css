@@ -946,3 +946,350 @@
   font-size: 0.72rem;
   color: var(--text-dim);
 }
+
+/* =====================
+   APERÇU
+======================== */
+.apercu-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.apercu-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.apercu-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.apercu-nom {
+  font-family: 'Cinzel', serif;
+  font-size: 1rem;
+  color: var(--gold);
+  font-weight: 700;
+  flex: 1;
+}
+
+.apercu-sub {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  font-style: italic;
+  flex: 1;
+}
+
+.apercu-pvpm {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.apercu-bar {
+  font-family: 'Cinzel', serif;
+  font-size: 0.8rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 3px;
+}
+
+.apercu-bar--hp { background: rgba(192,57,43,0.2); color: #e74c3c; }
+.apercu-bar--mp { background: rgba(41,128,185,0.2); color: #3498db; }
+
+.apercu-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.apercu-stat-badge {
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  background: rgba(201,168,76,0.08);
+  border: 1px solid rgba(201,168,76,0.2);
+  border-radius: 3px;
+  padding: 0.1rem 0.3rem;
+  color: var(--text-dim);
+}
+
+.apercu-statuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.apercu-equip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.82rem;
+}
+
+.apercu-equip-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.apercu-equip-slot {
+  color: var(--text-dim);
+  min-width: 55px;
+  font-size: 0.75rem;
+  font-family: 'Cinzel', serif;
+  letter-spacing: 0.05em;
+}
+
+.apercu-equip-name {
+  color: var(--text);
+}
+
+.apercu-gils {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+}
+
+.apercu-gils strong { color: var(--gold); }
+
+.apercu-section-title {
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 0.25rem;
+}
+
+.apercu-comps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.apercu-comp-row {
+  font-size: 0.82rem;
+  color: var(--text);
+}
+
+/* =====================
+   GÉNÉRATEUR
+======================== */
+.gen-result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.gen-result-name {
+  font-family: 'Cinzel', serif;
+  font-size: 1.1rem;
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.gen-result-sub {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.gen-result-level {
+  font-family: 'Cinzel', serif;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  background: rgba(201,168,76,0.1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.25rem 0.6rem;
+}
+
+.gen-bars {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.gen-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1;
+}
+
+.gen-stat-label {
+  font-family: 'Cinzel', serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  min-width: 35px;
+}
+
+.gen-stat-input {
+  width: 5rem !important;
+  padding: 0.3rem 0.5rem !important;
+  font-size: 0.95rem !important;
+}
+
+.gen-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.gen-stat-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.gen-exp-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--border);
+  margin-bottom: 0.75rem;
+}
+
+.gen-exp-val {
+  font-family: 'Cinzel', serif;
+  font-size: 1rem;
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.gen-skills-section {
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.gen-skill-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid rgba(201,168,76,0.08);
+}
+
+.gen-skill-name {
+  flex: 1;
+  font-size: 0.9rem;
+}
+
+.gen-actions {
+  display: flex;
+  gap: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+/* =====================
+   GÉNÉRATEUR — skills avec desc
+======================== */
+.gen-skill-row--full {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid rgba(201,168,76,0.08);
+}
+
+.gen-skill-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.gen-skill-name { flex: 1; font-size: 0.9rem; font-weight: 600; }
+
+.gen-skill-range {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.gen-skill-desc {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  font-style: italic;
+  padding-left: 0.25rem;
+  line-height: 1.4;
+}
+
+/* Message confirmation ajout combat */
+.gen-added-msg {
+  font-family: 'Cinzel', serif;
+  font-size: 0.75rem;
+  color: #2ecc71;
+  letter-spacing: 0.08em;
+  margin-top: 0.5rem;
+}
+
+/* =====================
+   COMBAT — compétences monstre
+======================== */
+.combattant-combat-skills {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.35rem 0.5rem;
+  background: rgba(201,168,76,0.04);
+  border-left: 2px solid rgba(201,168,76,0.2);
+  border-radius: 3px;
+}
+
+.combat-skill-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.combat-skill-header {
+  display: flex;
+  align-items: center;
+}
+
+.combat-skill-name {
+  font-family: 'Cinzel', serif;
+  font-size: 0.7rem;
+  color: var(--gold-dim);
+  letter-spacing: 0.05em;
+}
+
+.combat-skill-desc {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  font-style: italic;
+  line-height: 1.3;
+  padding-left: 0.35rem;
+}
+
+/* Aperçu — statuts colorés */
+.apercu-statut-row { border-left: 3px solid transparent; padding-left: 0.4rem; border-radius: 2px; }
+.apercu-statut-row--pos { border-left-color: rgba(46,204,113,0.5); background: rgba(46,204,113,0.05); }
+.apercu-statut-row--neg { border-left-color: rgba(231,76,60,0.5);  background: rgba(231,76,60,0.05);  }
+.apercu-statut-row--oth { border-left-color: rgba(52,152,219,0.5); background: rgba(52,152,219,0.05); }
+
+/* statut-nom-input en span (lecture seule joueurs) */
+span.statut-nom-input {
+  font-family: 'Crimson Text', serif;
+  font-size: 0.95rem;
+  color: var(--text);
+  display: block;
+}

@@ -1912,3 +1912,202 @@ body.light-mode .levelup-box {
 #comp-body .stats-table {
   min-width: 520px;
 }
+
+/* =====================
+   COMPÉTENCES — nouveau tableau
+======================== */
+.comp-auto-cell {
+  font-style: italic;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+#comp-body .table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+#comp-body .stats-table {
+  min-width: 520px;
+}
+
+/* =====================
+   COMPÉTENCES — Soutien/Réaction actif
+======================== */
+.comp-active-cb {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+
+.comp-row--active {
+  background: rgba(201,168,76,0.1) !important;
+  border-left: 3px solid var(--gold);
+}
+
+.comp-row--active .comp-auto-cell {
+  color: var(--text);
+}
+
+/* Compétences maîtrisées ou innées — même style que Soutien/Réaction actif */
+.comp-row--mastered {
+  background: rgba(201,168,76,0.1) !important;
+  border-left: 3px solid var(--gold);
+}
+
+.comp-row--mastered .comp-auto-cell {
+  color: var(--text);
+}
+
+/* =====================
+   STATUTS — menu popup
+======================== */
+.statut-menu-popup {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  min-width: 180px;
+}
+
+.statut-menu-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  cursor: pointer;
+  font-family: 'Crimson Text', serif;
+  font-size: 0.95rem;
+  padding: 0.4rem 0.75rem;
+  text-align: left;
+  transition: all 0.15s;
+  width: 100%;
+}
+
+.statut-menu-btn:hover         { border-color: var(--gold-dim); color: var(--gold); }
+.statut-menu-btn--pos:hover    { border-color: #2ecc71; color: #2ecc71; }
+.statut-menu-btn--neg:hover    { border-color: #e74c3c; color: #e74c3c; }
+
+/* Overlay liste statuts */
+.statut-liste-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.statut-liste-box {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 70vh;
+  padding: 1rem;
+  position: relative;
+  width: min(420px, 90vw);
+}
+
+.statut-liste-title {
+  font-family: 'Cinzel', serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.statut-liste-close {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 1rem;
+  position: absolute;
+  right: 0.75rem;
+  top: 0.75rem;
+}
+
+.statut-liste-search {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: 'Crimson Text', serif;
+  font-size: 1rem;
+  outline: none;
+  padding: 0.4rem 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.statut-liste-search:focus { border-color: var(--gold-dim); }
+
+.statut-liste-items {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.statut-liste-row {
+  border-radius: var(--radius);
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.4rem 0.6rem;
+  transition: background 0.15s;
+}
+
+.statut-liste-row:hover              { background: rgba(201,168,76,0.08); }
+.statut-liste-row--pos               { border-left-color: #2ecc71; }
+.statut-liste-row--neg               { border-left-color: #e74c3c; }
+.statut-liste-nom                    { font-size: 0.9rem; color: var(--text); }
+.statut-liste-desc                   { font-size: 0.78rem; color: var(--text-dim); font-style: italic; }
+
+/* Statut avec description inline sur fiche joueur */
+.statut-nom-wrap    { display: flex; flex-direction: column; gap: 0.1rem; flex: 1; }
+.statut-desc-inline { font-size: 0.75rem; color: var(--text-dim); font-style: italic; line-height: 1.3; }
+
+/* Aperçu MJ — statuts avec desc */
+.apercu-statuts       { display: flex; flex-direction: column; gap: 0.3rem; }
+.apercu-statut-row    { display: flex; flex-direction: column; gap: 0.05rem; }
+.apercu-statut-nom    { font-size: 0.82rem; color: var(--text); }
+.apercu-statut-desc   { font-size: 0.75rem; color: var(--text-dim); font-style: italic; }
+
+/* =====================
+   STATUTS — couleurs pos/neg
+======================== */
+.statut-item--pos {
+  background: rgba(46,204,113,0.06);
+  border-left: 3px solid rgba(46,204,113,0.4);
+}
+
+.statut-item--neg {
+  background: rgba(231,76,60,0.06);
+  border-left: 3px solid rgba(231,76,60,0.4);
+}
+
+/* Badges statuts colorés (combat MJ + aperçu) */
+.statut-badge--pos { background: rgba(46,204,113,0.15) !important; border-color: rgba(46,204,113,0.4) !important; color: #2ecc71 !important; }
+.statut-badge--neg { background: rgba(231,76,60,0.15)  !important; border-color: rgba(231,76,60,0.4)  !important; color: #e74c3c !important; }
+.statut-badge--oth { background: rgba(52,152,219,0.15) !important; border-color: rgba(52,152,219,0.4) !important; color: #3498db !important; }
+
+/* Statut item bleu si type inconnu */
+.statut-item--other { background: rgba(52,152,219,0.06); border-left: 3px solid rgba(52,152,219,0.4); }

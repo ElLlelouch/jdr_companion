@@ -72,6 +72,7 @@ if (isAppPage) {
   const itemsCache  = {};
   let racesCache    = null;  // { id: {nom, classes:[{nom,abr}]} }
   let skillsCache   = [];    // toutes les skills Firebase
+  let statutsCache  = [];    // tous les statuts Firebase
 
   const SLOTS = [
     { key: 'main1Item',  label: 'Main 1',  type: 'main'   },
@@ -377,14 +378,26 @@ if (isAppPage) {
   // =====================
   // STATUTS
   // =====================
+  function initStatuts(data) {
+    state.statuts = data.statuts || [];
+    renderStatuts();
+    document.getElementById('statut-add').addEventListener('click', () => showStatutMenu());
+  }
+
   function renderStatuts() {
     const list = document.getElementById('statuts-list');
     list.innerHTML = '';
-
     state.statuts.forEach((statut, i) => {
       const item = document.createElement('div');
-      item.className = 'statut-item';
+      // Couleur selon type
+      const typeClass = statut.type === 'pos' ? 'statut-item--pos'
+                      : statut.type === 'neg' ? 'statut-item--neg'
+                      : statut.type           ? 'statut-item--other' : '';
+      item.className = `statut-item${typeClass ? ' '+typeClass : ''}`;
 
+      // Nom + desc
+      const nomWrap = document.createElement('div');
+      nomWrap.className = 'statut-nom-wrap';
       const nomInput = document.createElement('input');
       nomInput.className   = 'statut-nom-input';
       nomInput.type        = 'text';
@@ -394,22 +407,23 @@ if (isAppPage) {
         state.statuts[i].nom = nomInput.value;
         sauvegarder({ statuts: state.statuts });
       });
-      item.appendChild(nomInput);
+      nomWrap.appendChild(nomInput);
+      if (statut.desc) {
+        const descEl = document.createElement('div');
+        descEl.className   = 'statut-desc-inline';
+        descEl.textContent = statut.desc;
+        nomWrap.appendChild(descEl);
+      }
+      item.appendChild(nomWrap);
 
       // Cases à cocher : 3 | 2
       const checksGroup = document.createElement('div');
       checksGroup.className = 'statut-checks-group';
-
       for (let c = 0; c < 5; c++) {
-        if (c === 3) {
-          const sep = document.createElement('div');
-          sep.className = 'statut-sep';
-          checksGroup.appendChild(sep);
-        }
+        if (c === 3) { const sep = document.createElement('div'); sep.className = 'statut-sep'; checksGroup.appendChild(sep); }
         const cb = document.createElement('input');
-        cb.type      = 'checkbox';
-        cb.className = 'statut-check';
-        cb.checked   = statut.checks?.[c] || false;
+        cb.type = 'checkbox'; cb.className = 'statut-check';
+        cb.checked = statut.checks?.[c] || false;
         cb.addEventListener('change', () => {
           if (!state.statuts[i].checks) state.statuts[i].checks = [false,false,false,false,false];
           state.statuts[i].checks[c] = cb.checked;
@@ -420,17 +434,107 @@ if (isAppPage) {
       item.appendChild(checksGroup);
 
       const delBtn = document.createElement('button');
-      delBtn.className   = 'statut-del';
-      delBtn.textContent = '✕';
+      delBtn.className = 'statut-del'; delBtn.textContent = '✕';
       delBtn.addEventListener('click', () => {
         state.statuts.splice(i, 1);
         renderStatuts();
         sauvegarder({ statuts: state.statuts });
       });
       item.appendChild(delBtn);
-
       list.appendChild(item);
     });
+  }
+
+  function addStatut(s) {
+    state.statuts.push({
+      nom:    s.nom    || '',
+      desc:   s.desc   || '',
+      type:   s.type   || '',
+      checks: [false,false,false,false,false]
+    });
+    renderStatuts();
+    sauvegarder({ statuts: state.statuts });
+  }
+
+  function showStatutMenu() {
+    const old = document.getElementById('statut-menu-popup');
+    if (old) { old.remove(); return; }
+    const anchor = document.getElementById('statut-add');
+    const menu = document.createElement('div');
+    menu.id = 'statut-menu-popup';
+    menu.className = 'statut-menu-popup';
+
+    const opts = [
+      { label: '✏️ Manuel',           action: () => { addStatut({}); menu.remove(); } },
+      { label: '✦ Positif aléatoire', cls: 'statut-menu-btn--pos', action: () => {
+        const pool = statutsCache.filter(s => s.type === 'pos');
+        if (pool.length) addStatut(pool[Math.floor(Math.random()*pool.length)]);
+        menu.remove();
+      }},
+      { label: '✦ Négatif aléatoire', cls: 'statut-menu-btn--neg', action: () => {
+        const pool = statutsCache.filter(s => s.type === 'neg');
+        if (pool.length) addStatut(pool[Math.floor(Math.random()*pool.length)]);
+        menu.remove();
+      }},
+      { label: '📋 Depuis la liste',  action: () => { menu.remove(); showStatutListe(); } },
+    ];
+
+    opts.forEach(o => {
+      const btn = document.createElement('button');
+      btn.className   = `statut-menu-btn${o.cls?' '+o.cls:''}`;
+      btn.textContent = o.label;
+      btn.addEventListener('click', o.action);
+      menu.appendChild(btn);
+    });
+
+    const rect = anchor.getBoundingClientRect();
+    menu.style.cssText = `position:fixed;top:${rect.bottom+4}px;left:${rect.left}px;z-index:9999`;
+    document.body.appendChild(menu);
+    setTimeout(() => {
+      document.addEventListener('click', function h(e) {
+        if (!menu.contains(e.target) && e.target !== anchor) { menu.remove(); document.removeEventListener('click', h); }
+      });
+    }, 50);
+  }
+
+  function showStatutListe() {
+    const overlay = document.createElement('div');
+    overlay.className = 'statut-liste-overlay';
+    const box = document.createElement('div');
+    box.className = 'statut-liste-box';
+
+    const title = document.createElement('div');
+    title.className = 'statut-liste-title'; title.textContent = 'Choisir un statut';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'statut-liste-close'; closeBtn.textContent = '✕';
+    closeBtn.addEventListener('click', () => overlay.remove());
+
+    const searchInp = document.createElement('input');
+    searchInp.className = 'statut-liste-search'; searchInp.type = 'text'; searchInp.placeholder = 'Rechercher...';
+
+    const items = document.createElement('div');
+    items.className = 'statut-liste-items';
+
+    function renderListe(filter) {
+      items.innerHTML = '';
+      statutsCache.filter(s => s.nom.toLowerCase().includes(filter.toLowerCase())).forEach(s => {
+        const row = document.createElement('div');
+        row.className = `statut-liste-row statut-liste-row--${s.type}`;
+        row.innerHTML = `<span class="statut-liste-nom">${s.nom}</span><span class="statut-liste-desc">${s.desc||''}</span>`;
+        row.addEventListener('click', () => { addStatut(s); overlay.remove(); });
+        items.appendChild(row);
+      });
+    }
+
+    searchInp.addEventListener('input', () => renderListe(searchInp.value));
+    renderListe('');
+
+    box.appendChild(title); box.appendChild(closeBtn);
+    box.appendChild(searchInp); box.appendChild(items);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    searchInp.focus();
   }
 
   // =====================
@@ -485,9 +589,11 @@ if (isAppPage) {
   }
 
   function buildClasseDropdown(race, currentClasse) {
-    const classeInput    = document.getElementById('perso-classe');
     const classeDropdown = document.getElementById('classe-dropdown');
-    classeInput.value    = currentClasse;
+
+    // Toujours récupérer l'input au moment de l'appel (pas de clone)
+    function getInput() { return document.getElementById('perso-classe'); }
+    getInput().value = currentClasse;
 
     function renderClasseDropdown(filter) {
       classeDropdown.innerHTML = '';
@@ -495,7 +601,7 @@ if (isAppPage) {
       if (!classes.length) {
         const empty = document.createElement('div');
         empty.className   = 'equip-option';
-        empty.textContent = race ? 'Aucune classe trouvée' : 'Sélectionnez une race d'abord';
+        empty.textContent = race ? 'Aucune classe trouvée' : 'Sélectionnez une race';
         empty.style.color = 'var(--text-dim)';
         classeDropdown.appendChild(empty);
         return;
@@ -505,10 +611,9 @@ if (isAppPage) {
         opt.className   = 'equip-option';
         opt.textContent = `${cls.nom} (${cls.abr})`;
         opt.addEventListener('mousedown', () => {
-          classeInput.value = cls.nom;
+          getInput().value = cls.nom;
           classeDropdown.classList.add('hidden');
           sauvegarder({ classe: cls.nom });
-          // Reconstruire le dropdown compétences avec la nouvelle classe
           renderCompetences();
         });
         classeDropdown.appendChild(opt);
@@ -516,7 +621,8 @@ if (isAppPage) {
     }
 
     function positionClasseDropdown() {
-      const rect = classeInput.getBoundingClientRect();
+      const input = getInput();
+      const rect  = input.getBoundingClientRect();
       classeDropdown.style.position  = 'fixed';
       classeDropdown.style.top       = (rect.bottom + 2) + 'px';
       classeDropdown.style.left      = rect.left + 'px';
@@ -525,9 +631,10 @@ if (isAppPage) {
       classeDropdown.style.maxHeight = Math.min(220, window.innerHeight - rect.bottom - 8) + 'px';
     }
 
-    // Nettoyer anciens listeners en recréant l'élément
-    const newInput = classeInput.cloneNode(true);
-    classeInput.parentNode.replaceChild(newInput, classeInput);
+    // Supprimer anciens listeners sans cloner (on réattache toujours les mêmes)
+    const input = getInput();
+    const newInput = input.cloneNode(true);
+    input.parentNode.replaceChild(newInput, input);
     newInput.value = currentClasse;
 
     newInput.addEventListener('focus', () => { renderClasseDropdown(newInput.value); positionClasseDropdown(); classeDropdown.classList.remove('hidden'); });
@@ -927,29 +1034,293 @@ if (isAppPage) {
   // =====================
   // COMPÉTENCES
   // =====================
-  function renderCompetences() {
-    const tbody=document.getElementById('comp-tbody'); tbody.innerHTML='';
-    state.competences.forEach((comp,i)=>{
-      const tr=document.createElement('tr');
-      tr.innerHTML=`
-        <td><input class="comp-input" data-i="${i}" data-field="nom"      type="text" value="${comp.nom||''}"      placeholder="Nom" /></td>
-        <td class="td-wrap"><input class="comp-input" data-i="${i}" data-field="desc" type="text" value="${comp.desc||''}" placeholder="Description" style="width:100%" /></td>
-        <td><input class="comp-input" data-i="${i}" data-field="pm"       type="text" value="${comp.pm||''}"       placeholder="0"       style="width:3ch;text-align:center" /></td>
-        <td><input class="comp-input" data-i="${i}" data-field="maitrise" type="text" value="${comp.maitrise||''}" placeholder="999/999" style="width:7ch" /></td>
-        <td><button class="inv-del-btn" data-i="${i}">✕</button></td>`;
-      tbody.appendChild(tr);
-    });
-    tbody.querySelectorAll('.comp-input').forEach(input=>{
-      input.addEventListener('blur',()=>{ state.competences[parseInt(input.dataset.i)][input.dataset.field]=input.value; sauvegarder({competences:state.competences}); });
-    });
-    tbody.querySelectorAll('.inv-del-btn').forEach(btn=>{
-      btn.addEventListener('click',()=>{
-        const i=parseInt(btn.dataset.i), nom=state.competences[i].nom||'cette compétence';
-        if(confirm(`Supprimer "${nom}" ?`)){ state.competences.splice(i,1); renderCompetences(); sauvegarder({competences:state.competences}); }
-      });
+  // Récupérer les skills disponibles pour la race courante
+  function getSkillsForRace() {
+    const raceNom = document.getElementById('perso-race')?.value || '';
+    const raceObj = Object.values(racesCache || {}).find(r => r.nom === raceNom);
+    if (!raceObj) return skillsCache;
+    const classeNoms = raceObj.classes.map(c => c.nom);
+    const classeAbrs = raceObj.classes.map(c => c.abr);
+    return skillsCache.filter(s => {
+      if (!s.classes) return false;
+      const parts = s.classes.split(' / ').map(p => p.trim());
+      // Inclure si Special ou si une classe de la race peut l'apprendre
+      if (parts.includes('Special') || parts.includes('Spc.')) return true;
+      return parts.some(p => classeNoms.includes(p) || classeAbrs.includes(p));
     });
   }
 
+  // Formater le label d'une skill : "Nom (Abrv1 / Abrv2)"
+  // showAll=true pour le tableau (affiche toutes les abrs), false pour le dropdown
+  function formatSkillLabel(skill, showAll=false) {
+    const raceNom = document.getElementById('perso-race')?.value || '';
+    const raceObj = Object.values(racesCache || {}).find(r => r.nom === raceNom);
+    if (!skill.classes) return skill.name;
+    const parts = skill.classes.split(' / ').map(p => p.trim());
+    // Special
+    if (parts.includes('Special') || parts.includes('Spc.')) {
+      return `${skill.name} (Spc.)`;
+    }
+    if (!raceObj) return skill.name;
+    const classeMap = {};
+    raceObj.classes.forEach(c => { classeMap[c.nom] = c.abr; });
+    const abrs = parts.filter(p => classeMap[p]).map(p => classeMap[p]);
+    return abrs.length ? `${skill.name} (${abrs.join(' / ')})` : skill.name;
+  }
+
+  // Maîtrise : pc>0 => input+/pc, pc=0+note => note, sinon "Maitrise"
+  function getMaitriseConfig(comp) {
+    const skill = skillsCache.find(s => s.name === comp.nom);
+    if (!skill) return { type: 'input', suffix: '' };
+    if (skill.pc > 0)  return { type: 'input',  suffix: `/${skill.pc}` };
+    if (skill.pc_note) return { type: 'static', value: skill.pc_note };
+    return { type: 'static', value: 'Maitrise' };
+  }
+
+  function renderCompetences() {
+    const tbody = document.getElementById('comp-tbody');
+    tbody.innerHTML = '';
+
+    state.competences.forEach((comp, i) => {
+      const tr = document.createElement('tr');
+      const mconf = getMaitriseConfig(comp);
+
+      // ---- Nom : dropdown searchable ----
+      const tdNom = document.createElement('td');
+      const wrapper = document.createElement('div');
+      wrapper.className = 'equip-search-wrapper';
+      const nomInput = document.createElement('input');
+      nomInput.className   = 'equip-search-input';
+      nomInput.type        = 'text';
+      nomInput.placeholder = 'Compétence...';
+      // Afficher nom + abréviations dans le tableau
+      const _skill = skillsCache.find(s => s.name === comp.nom);
+      nomInput.value = _skill ? formatSkillLabel(_skill) : (comp.nom || '');
+      const nomDD = document.createElement('div');
+      nomDD.className = 'equip-dropdown hidden';
+
+      function renderSkillDD(filter) {
+        nomDD.innerHTML = '';
+        const filterLow = filter.toLowerCase();
+        const raceNom2  = document.getElementById('perso-race')?.value || '';
+        const raceObj2  = Object.values(racesCache || {}).find(r => r.nom === raceNom2);
+        const classeMap2 = {};
+        if (raceObj2) raceObj2.classes.forEach(c => { classeMap2[c.nom] = c.abr; });
+
+        const available = getSkillsForRace().filter(s => {
+          // Recherche sur le nom
+          if (s.name.toLowerCase().includes(filterLow)) return true;
+          // Recherche sur les abréviations des classes
+          if (!s.classes) return false;
+          const parts = s.classes.split(' / ').map(p => p.trim());
+          return parts.some(p => {
+            const abr = classeMap2[p] || p;
+            return abr.toLowerCase().includes(filterLow);
+          });
+        });
+        if (!available.length) {
+          const e = document.createElement('div');
+          e.className = 'equip-option';
+          e.textContent = 'Aucune competence disponible';
+          e.style.color = 'var(--text-dim)';
+          nomDD.appendChild(e);
+          return;
+        }
+        available.forEach(skill => {
+          const opt = document.createElement('div');
+          opt.className   = 'equip-option';
+          opt.textContent = formatSkillLabel(skill);
+          opt.addEventListener('mousedown', () => {
+            state.competences[i] = {
+              ...state.competences[i],
+              skillId: skill.id,
+              nom:     skill.name,
+              desc:    skill.desc     || '',
+              range:   skill.range    || '',
+              pm:      skill.pm       || 0,
+              pc:      skill.pc       || 0,
+              pc_note: skill.pc_note  || '',
+            };
+            nomInput.value = formatSkillLabel(skill);
+            nomDD.classList.add('hidden');
+            sauvegarder({ competences: state.competences });
+            renderCompetences();
+          });
+          nomDD.appendChild(opt);
+        });
+      }
+
+      function posNomDD() {
+        const rect = nomInput.getBoundingClientRect();
+        nomDD.style.position  = 'fixed';
+        nomDD.style.top       = (rect.bottom + 2) + 'px';
+        nomDD.style.left      = rect.left + 'px';
+        nomDD.style.width     = Math.max(rect.width, 200) + 'px';
+        nomDD.style.zIndex    = '9999';
+        nomDD.style.maxHeight = Math.min(220, window.innerHeight - rect.bottom - 8) + 'px';
+      }
+
+      nomInput.addEventListener('focus', () => { renderSkillDD(nomInput.value); posNomDD(); nomDD.classList.remove('hidden'); });
+      nomInput.addEventListener('input', () => { renderSkillDD(nomInput.value); posNomDD(); });
+      nomInput.addEventListener('blur',  () => setTimeout(() => nomDD.classList.add('hidden'), 150));
+      window.addEventListener('scroll',  () => { if (!nomDD.classList.contains('hidden')) posNomDD(); }, { passive: true });
+
+      wrapper.appendChild(nomInput);
+      wrapper.appendChild(nomDD);
+      tdNom.appendChild(wrapper);
+      tr.appendChild(tdNom);
+
+      // ---- Desc ----
+      const tdDesc = document.createElement('td');
+      tdDesc.className   = 'comp-auto-cell';
+      tdDesc.textContent = comp.desc || '—';
+      tr.appendChild(tdDesc);
+
+      // ---- Portée ----
+      const tdRange = document.createElement('td');
+      tdRange.className   = 'comp-auto-cell';
+      tdRange.textContent = comp.range || '—';
+      tr.appendChild(tdRange);
+
+      // ---- PM ----
+      const tdPm = document.createElement('td');
+      tdPm.style.textAlign = 'center';
+      const skillMatch = skillsCache.find(s => s.name === comp.nom);
+      const isSoutienReaction = skillMatch && (skillMatch.range === 'Soutien' || skillMatch.range === 'Reaction' || skillMatch.range === 'Réaction');
+
+      if (isSoutienReaction) {
+        // Case cochable exclusive par type
+        const cb = document.createElement('input');
+        cb.type      = 'checkbox';
+        cb.className = 'comp-active-cb';
+        cb.checked   = comp.actif || false;
+        cb.title     = `Activer ce ${skillMatch.range}`;
+        cb.addEventListener('change', () => {
+          const type = skillMatch.range;
+          // Décocher tous les autres du même type
+          state.competences.forEach((c, j) => {
+            const sm = skillsCache.find(s => s.name === c.nom);
+            if (j !== i && sm && (sm.range === type || (type === 'Réaction' && sm.range === 'Reaction') || (type === 'Reaction' && sm.range === 'Réaction'))) {
+              state.competences[j].actif = false;
+            }
+          });
+          state.competences[i].actif = cb.checked;
+          sauvegarder({ competences: state.competences });
+          renderCompetences();
+        });
+        tdPm.style.textAlign = 'center';
+        tdPm.appendChild(cb);
+      } else {
+        const pmInput = document.createElement('input');
+        pmInput.className   = 'comp-input no-spin';
+        pmInput.type        = 'number';
+        pmInput.value       = comp.pm || 0;
+        pmInput.style.width = '4ch';
+        if (skillMatch) {
+          pmInput.readOnly      = true;
+          pmInput.style.opacity = '0.6';
+          pmInput.style.cursor  = 'default';
+        } else {
+          pmInput.addEventListener('blur', () => {
+            state.competences[i].pm = parseInt(pmInput.value) || 0;
+            sauvegarder({ competences: state.competences });
+          });
+        }
+        tdPm.appendChild(pmInput);
+      }
+      tr.appendChild(tdPm);
+
+      // Surbrillance si actif (Soutien/Réaction cochée)
+      if (comp.actif) {
+        tr.classList.add('comp-row--active');
+      }
+      // Surbrillance si innée (pc=0 et pas de pc_note) ou maîtrisée (maitrise atteint pc)
+      if (skillMatch) {
+        const isInnee    = skillMatch.pc === 0 && !skillMatch.pc_note;
+        const isMaitrise = skillMatch.pc > 0 && comp.maitrise && parseInt(comp.maitrise) >= skillMatch.pc;
+        const isNoted    = skillMatch.pc === 0 && skillMatch.pc_note;
+        if (isInnee || isMaitrise || isNoted) {
+          tr.classList.add('comp-row--mastered');
+        }
+      }
+
+      // ---- Maîtrise ----
+      const tdMait = document.createElement('td');
+      tdMait.style.whiteSpace = 'nowrap';
+      tdMait.style.textAlign  = 'center';
+      if (mconf.type === 'input') {
+        const mInput = document.createElement('input');
+        mInput.className   = 'comp-input';
+        mInput.type        = 'text';
+        mInput.value       = comp.maitrise || '';
+        mInput.placeholder = '0';
+        mInput.style.width = '3ch';
+        mInput.addEventListener('blur', () => {
+          state.competences[i].maitrise = mInput.value;
+          sauvegarder({ competences: state.competences });
+        });
+        const suffix = document.createElement('span');
+        suffix.className   = 'tbl-suffix';
+        suffix.textContent = mconf.suffix;
+        tdMait.appendChild(mInput);
+        tdMait.appendChild(suffix);
+      } else {
+        tdMait.className   = 'comp-auto-cell';
+        tdMait.textContent = mconf.value;
+      }
+      tr.appendChild(tdMait);
+
+      // ---- Supprimer ----
+      const tdDel = document.createElement('td');
+      const delBtn = document.createElement('button');
+      delBtn.className   = 'inv-del-btn';
+      delBtn.textContent = '✕';
+      delBtn.addEventListener('click', () => {
+        const nom = state.competences[i].nom || 'cette competence';
+        if (confirm(`Supprimer "${nom}" ?`)) {
+          state.competences.splice(i, 1);
+          renderCompetences();
+          sauvegarder({ competences: state.competences });
+        }
+      });
+      tdDel.appendChild(delBtn);
+      tr.appendChild(tdDel);
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  // Mise à jour temps réel depuis skills Firebase
+  function majCompetencesFromSkills() {
+    let changed = false;
+    state.competences.forEach((comp, i) => {
+      // Chercher par nom OU par id si le nom a changé
+      const skill = skillsCache.find(s => s.name === comp.nom)
+                 || skillsCache.find(s => s.id   === comp.skillId);
+      if (!skill) return;
+      if (skill.name    !== comp.nom      ||
+          skill.desc    !== comp.desc     ||
+          skill.range   !== comp.range    ||
+          skill.pm      !== comp.pm       ||
+          skill.pc      !== comp.pc       ||
+          skill.pc_note !== comp.pc_note) {
+        state.competences[i] = {
+          ...comp,
+          nom:     skill.name,
+          desc:    skill.desc     || '',
+          range:   skill.range    || '',
+          pm:      skill.pm       || 0,
+          pc:      skill.pc       || 0,
+          pc_note: skill.pc_note  || '',
+        };
+        changed = true;
+      }
+    });
+    if (changed) {
+      sauvegarder({ competences: state.competences });
+      renderCompetences();
+    }
+  }
   // =====================
   // EXPANDABLES
   // =====================
@@ -974,12 +1345,66 @@ if (isAppPage) {
       if(!docSnap.exists()){ document.getElementById('perso-nom').textContent='Personnage introuvable'; return; }
       const data=docSnap.data();
 
-      document.getElementById('perso-nom').textContent = data.nom    ||'—';
-      document.getElementById('perso-race').value      = data.race   ||'';
-      document.getElementById('perso-classe').value    = data.classe ||'';
-      ['perso-race','perso-classe'].forEach(id=>{
-        const champ=id==='perso-race'?'race':'classe';
-        document.getElementById(id).addEventListener('blur',e=>sauvegarder({[champ]:e.target.value}));
+      document.getElementById('perso-nom').textContent = data.nom || '—';
+
+      // Charger statuts depuis Firebase
+      if (!statutsCache.length) {
+        const statutsSnap = await getDocs(collection(db, 'statuts'));
+        statutsCache = [];
+        statutsSnap.forEach(d => statutsCache.push({ id: d.id, ...d.data() }));
+        statutsCache.sort((a,b) => a.nom.localeCompare(b.nom));
+      }
+
+      // Charger races depuis Firebase
+      if (!racesCache) {
+        racesCache = {};
+        const racesSnap = await getDocs(collection(db, 'races'));
+        racesSnap.forEach(d => { racesCache[d.id] = d.data(); });
+      }
+
+      // Charger skills depuis Firebase
+      if (!skillsCache.length) {
+        const skillsSnap = await getDocs(query(collection(db, 'skills'), orderBy('name')));
+        skillsCache = [];
+        skillsSnap.forEach(d => skillsCache.push({ id: d.id, ...d.data() }));
+      }
+
+      // Construire dropdowns Race/Classe
+      buildRaceDropdown(data.race || '', data.classe || '');
+
+      // onSnapshot statuts — mise à jour en temps réel
+      onSnapshot(collection(db,'statuts'), snapshot => {
+        snapshot.docChanges().forEach(change => {
+          const updated = { id: change.doc.id, ...change.doc.data() };
+          if (change.type === 'modified') {
+            const idx = statutsCache.findIndex(s => s.id === updated.id);
+            if (idx !== -1) statutsCache[idx] = updated;
+            // Mettre à jour les statuts actifs du joueur
+            let changed = false;
+            state.statuts.forEach((s, i) => {
+              if (s.nom === updated.nom) {
+                state.statuts[i] = { ...s, desc: updated.desc||'', type: updated.type||'' };
+                changed = true;
+              }
+            });
+            if (changed) { renderStatuts(); sauvegarder({ statuts: state.statuts }); }
+          } else if (change.type === 'added') {
+            if (!statutsCache.find(s => s.id === updated.id)) statutsCache.push(updated);
+          } else if (change.type === 'removed') {
+            statutsCache = statutsCache.filter(s => s.id !== updated.id);
+          }
+        });
+      });
+
+      // onSnapshot sur skills — mise à jour en temps réel
+      onSnapshot(collection(db, 'skills'), snapshot => {
+        snapshot.forEach(d => {
+          const updated = { id: d.id, ...d.data() };
+          const idx = skillsCache.findIndex(s => s.id === d.id);
+          if (idx !== -1) skillsCache[idx] = updated;
+          else skillsCache.push(updated);
+        });
+        majCompetencesFromSkills();
       });
 
       state.hpCurrent=data.hpCurrent||0; state.hpMax=data.hpMax||0;
@@ -1093,11 +1518,7 @@ if (isAppPage) {
       document.getElementById('pouvoir-desc').addEventListener('blur', e=>sauvegarder({pouvoirDesc:e.target.value}));
 
       // Statuts
-      state.statuts=data.statuts||[]; renderStatuts();
-      document.getElementById('statut-add').addEventListener('click',()=>{
-        state.statuts.push({nom:'',checks:[false,false,false,false,false]});
-        renderStatuts(); sauvegarder({statuts:state.statuts});
-      });
+      initStatuts(data);
 
       // Inventaire / Compétences / Notes
       state.inventaire=data.inventaire||[]; renderInventaire();
