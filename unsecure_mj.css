@@ -2,6 +2,8 @@
    MJ PAGE — LAYOUT
 ======================== */
 .mj-page {
+  overflow-x: hidden;
+  max-width: 100vw;
   min-height: 100vh;
 }
 
@@ -1292,4 +1294,149 @@ span.statut-nom-input {
   font-size: 0.95rem;
   color: var(--text);
   display: block;
+}
+
+
+/* =====================
+   RESPONSIVE MOBILE — page MJ
+======================== */
+
+/* Tabs scrollables horizontalement */
+.mj-tabs {
+  display: flex;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 0;
+}
+
+.mj-tabs::-webkit-scrollbar { display: none; }
+
+.mj-tab {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Contenu MJ — largeur max, pas de débordement */
+.mj-main {
+  max-width: 100vw;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+.mj-tab-content {
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+/* Sections et grilles */
+.mj-section {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.mj-cols {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Tables — scroll horizontal interne */
+.mj-section .table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+
+/* Aperçu — 1 colonne sur mobile */
+.apercu-grid {
+  grid-template-columns: 1fr;
+}
+
+/* Notes grid — 1 colonne sur mobile */
+.notes-grid {
+  grid-template-columns: 1fr !important;
+}
+
+/* Combattant rows — wrap sur mobile */
+.combattant-row {
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.combattant-stats-row {
+  flex-wrap: wrap;
+}
+
+/* Générateur — colonne unique sur mobile */
+.gen-stats-grid {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* Initiative groupes */
+.initiative-group {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Modal — plein écran sur mobile */
+.modal-box {
+  width: min(480px, 95vw);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* Calc grid — 2 colonnes sur mobile */
+@media (max-width: 500px) {
+  .mj-header {
+    padding: 0.5rem 0.75rem;
+    gap: 0.5rem;
+  }
+
+  .mj-title {
+    font-size: 1rem;
+  }
+
+  .apercu-card {
+    padding: 0.75rem;
+  }
+
+  .calc-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .gen-stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .mj-section-header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  /* Combattants — nom + HP sur une ligne, reste en dessous */
+  .combattant-left {
+    min-width: 100px;
+  }
+
+  /* Statuts dans combat — wrap */
+  .combattant-statuts-edit,
+  .combattant-statuts-display {
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .statuts-list-mj {
+    flex-direction: column;
+  }
+
+  /* Skills table mobile */
+  .skills-table,
+  .items-table,
+  .statuts-table {
+    min-width: 480px;
+  }
 }
