@@ -1069,6 +1069,26 @@ if (isAppPage) {
   }
 
   // Maîtrise : pc>0 => input+/pc, pc=0+note => note, sinon "Maitrise"
+  function majSurbrillanceRow(tr, comp, skillMatch) {
+    // Retirer toutes les classes de surbrillance
+    tr.classList.remove('comp-row--active', 'comp-row--mastered');
+
+    // Soutien/Réaction actif → orangé
+    if (comp.actif) {
+      tr.classList.add('comp-row--active');
+    }
+
+    // Maîtrisé ou inné → doré
+    if (skillMatch) {
+      const isInnee    = skillMatch.pc === 0 && !skillMatch.pc_note;
+      const isMaitrise = skillMatch.pc > 0 && comp.maitrise && parseInt(comp.maitrise) >= skillMatch.pc;
+      const isNoted    = skillMatch.pc === 0 && skillMatch.pc_note;
+      if (isInnee || isMaitrise || isNoted) {
+        tr.classList.add('comp-row--mastered');
+      }
+    }
+  }
+
   function getMaitriseConfig(comp) {
     const skill = skillsCache.find(s => s.name === comp.nom);
     if (!skill) return { type: 'input', suffix: '' };
@@ -1230,19 +1250,8 @@ if (isAppPage) {
       }
       tr.appendChild(tdPm);
 
-      // Surbrillance si actif (Soutien/Réaction cochée)
-      if (comp.actif) {
-        tr.classList.add('comp-row--active');
-      }
-      // Surbrillance si innée (pc=0 et pas de pc_note) ou maîtrisée (maitrise atteint pc)
-      if (skillMatch) {
-        const isInnee    = skillMatch.pc === 0 && !skillMatch.pc_note;
-        const isMaitrise = skillMatch.pc > 0 && comp.maitrise && parseInt(comp.maitrise) >= skillMatch.pc;
-        const isNoted    = skillMatch.pc === 0 && skillMatch.pc_note;
-        if (isInnee || isMaitrise || isNoted) {
-          tr.classList.add('comp-row--mastered');
-        }
-      }
+      // Appliquer la surbrillance initiale
+      majSurbrillanceRow(tr, comp, skillMatch);
 
       // ---- Maîtrise ----
       const tdMait = document.createElement('td');
@@ -1258,6 +1267,11 @@ if (isAppPage) {
         mInput.addEventListener('blur', () => {
           state.competences[i].maitrise = mInput.value;
           sauvegarder({ competences: state.competences });
+          // Re-check surbrillance
+          majSurbrillanceRow(tr, state.competences[i], skillMatch);
+        });
+        mInput.addEventListener('input', () => {
+          majSurbrillanceRow(tr, { ...state.competences[i], maitrise: mInput.value }, skillMatch);
         });
         const suffix = document.createElement('span');
         suffix.className   = 'tbl-suffix';

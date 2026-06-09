@@ -1940,26 +1940,27 @@ body.light-mode .levelup-box {
 .comp-active-cb {
   width: 16px;
   height: 16px;
-  accent-color: var(--gold);
+  accent-color: #e67e22;
   cursor: pointer;
 }
 
-.comp-row--active {
-  background: rgba(201,168,76,0.1) !important;
-  border-left: 3px solid var(--gold);
-}
-
-.comp-row--active .comp-auto-cell {
-  color: var(--text);
-}
-
-/* Compétences maîtrisées ou innées — même style que Soutien/Réaction actif */
+/* Compétences maîtrisées ou innées — doré */
 .comp-row--mastered {
   background: rgba(201,168,76,0.1) !important;
   border-left: 3px solid var(--gold);
 }
 
 .comp-row--mastered .comp-auto-cell {
+  color: var(--text);
+}
+
+/* Soutien/Réaction actif — orangé distinct */
+.comp-row--active {
+  background: rgba(230,126,34,0.1) !important;
+  border-left: 3px solid #e67e22;
+}
+
+.comp-row--active .comp-auto-cell {
   color: var(--text);
 }
 

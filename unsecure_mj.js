@@ -239,17 +239,9 @@ function renderJoueurRow(row, c) {
     statsEl.appendChild(badge);
   });
 
-  const statutsEl=document.createElement('div');
-  statutsEl.className='combattant-statuts-display';
-  (c.statuts||[]).forEach(s=>{
-    if(!s.nom) return;
-    const span=document.createElement('span');
-    const typeClass = s.type==='pos' ? 'statut-badge--pos' : s.type==='neg' ? 'statut-badge--neg' : s.type ? 'statut-badge--oth' : '';
-    span.className=`statut-badge${typeClass?' '+typeClass:''}`;
-    const checked=(s.checks||[]).filter(Boolean).length;
-    span.textContent=checked>0?`${s.nom} (${checked}/5)`:s.nom;
-    statutsEl.appendChild(span);
-  });
+  const statutsWrapPJ = document.createElement('div');
+  statutsWrapPJ.className = 'combattant-statuts-edit';
+  renderStatutsPJ(statutsWrapPJ, c);
 
   const delBtn = document.createElement('button');
   delBtn.className = 'combattant-delete';
@@ -263,7 +255,7 @@ function renderJoueurRow(row, c) {
   row.appendChild(left);
   row.appendChild(historyEl);
   row.appendChild(statsEl);
-  row.appendChild(statutsEl);
+  row.appendChild(statutsWrapPJ);
   row.appendChild(delBtn);
 }
 
@@ -619,8 +611,9 @@ function initModals() {
     const def   =parseInt(document.getElementById('ennemi-def').value)||0;
     const mag   =parseInt(document.getElementById('ennemi-mag').value)||0;
     const res   =parseInt(document.getElementById('ennemi-res').value)||0;
-    ennemis.push({id:`${currentKind}_${Date.now()}`,type:currentKind,nom,hpMax,hpCurrent:hpMax,agi,atk,def,mag,res,statuts:[],hpHistory:[]});
-    ['ennemi-nom','ennemi-atk','ennemi-def','ennemi-mag','ennemi-res'].forEach(id=>document.getElementById(id).value='');
+    const exp   =parseInt(document.getElementById('ennemi-exp').value)||0;
+    ennemis.push({id:`${currentKind}_${Date.now()}`,type:currentKind,nom,hpMax,hpCurrent:hpMax,agi,atk,def,mag,res,exp,statuts:[],hpHistory:[]});
+    ['ennemi-nom','ennemi-atk','ennemi-def','ennemi-mag','ennemi-res','ennemi-exp'].forEach(id=>document.getElementById(id).value='');
     ['ennemi-hp-max','ennemi-agi'].forEach(id=>document.getElementById(id).value='50');
     modal.classList.add('hidden');
     renderInitiative();
