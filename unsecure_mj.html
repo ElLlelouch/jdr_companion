@@ -87,6 +87,15 @@
         <div id="initiative-container"></div>
       </section>
 
+      <!-- Favoris / Familiers -->
+      <section class="mj-section">
+        <div class="mj-section-header">
+          <h2 class="mj-section-title">Favoris & Familiers</h2>
+          <button class="mj-btn-sm mj-btn-sm--ally" id="btn-new-favori">+ Nouveau favori</button>
+        </div>
+        <div id="favoris-list"></div>
+      </section>
+
       <div class="mj-cols">
 
         <!-- CALCULATEUR -->
@@ -288,11 +297,19 @@
           </select>
         </div>
         <div class="table-scroll">
-          <table class="stats-table items-table">
+          <table class="stats-table items-table-new">
             <thead>
               <tr>
-                <th>Nom</th><th>Type</th><th>ATK</th><th>DEF</th>
-                <th>MAG</th><th>RES</th><th>AGI</th><th>Description</th><th></th><th></th>
+                <th style="min-width:140px">Nom</th>
+                <th style="width:70px">Type</th>
+                <th style="width:45px">ATK</th>
+                <th style="width:45px">DEF</th>
+                <th style="width:45px">MAG</th>
+                <th style="width:45px">RES</th>
+                <th style="width:45px">AGI</th>
+                <th style="min-width:160px">Description</th>
+                <th style="width:2rem"></th>
+                <th style="width:2rem"></th>
               </tr>
             </thead>
             <tbody id="items-tbody"></tbody>
@@ -489,6 +506,55 @@
     </div>
 
   </div><!-- /mj-main -->
+
+  <!-- MODAL FAVORI -->
+  <div class="modal-overlay hidden" id="modal-favori">
+    <div class="modal-box">
+      <h3 class="modal-title" id="modal-favori-title">Nouveau favori</h3>
+      <div class="modal-fields">
+        <div class="calc-field">
+          <label class="calc-label">Nom</label>
+          <input class="calc-input" id="favori-nom" type="text" placeholder="Familier, PNJ allié..." />
+        </div>
+        <div class="calc-field">
+          <label class="calc-label">PV Max</label>
+          <input class="calc-input no-spin" id="favori-hp" type="number" value="50" />
+        </div>
+        <div class="calc-field">
+          <label class="calc-label">AGI</label>
+          <input class="calc-input no-spin" id="favori-agi" type="number" value="50" />
+        </div>
+        <div class="calc-field">
+          <label class="calc-label">ATK</label>
+          <input class="calc-input no-spin" id="favori-atk" type="number" value="0" />
+        </div>
+        <div class="calc-field">
+          <label class="calc-label">DEF</label>
+          <input class="calc-input no-spin" id="favori-def" type="number" value="0" />
+        </div>
+        <div class="calc-field">
+          <label class="calc-label">MAG</label>
+          <input class="calc-input no-spin" id="favori-mag" type="number" value="0" />
+        </div>
+        <div class="calc-field">
+          <label class="calc-label">RES</label>
+          <input class="calc-input no-spin" id="favori-res" type="number" value="0" />
+        </div>
+        <div class="calc-field">
+          <label class="calc-label">EXP donnée</label>
+          <input class="calc-input no-spin" id="favori-exp" type="number" value="0" />
+        </div>
+        <div class="calc-field calc-field--full">
+          <label class="calc-label">Notes</label>
+          <textarea class="calc-input" id="favori-notes" rows="2" placeholder="Description, capacités spéciales..." style="resize:vertical"></textarea>
+        </div>
+      </div>
+      <div class="modal-btns">
+        <button class="mj-btn" id="favori-confirm">Sauvegarder</button>
+        <button class="mj-btn mj-btn--dim" id="favori-cancel">Annuler</button>
+      </div>
+    </div>
+  </div>
 
   <!-- MODAL ENNEMI -->
   <div class="modal-overlay hidden" id="modal-ennemi">

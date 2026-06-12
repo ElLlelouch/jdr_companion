@@ -1440,3 +1440,96 @@ span.statut-nom-input {
     min-width: 480px;
   }
 }
+
+/* =====================
+   ITEMS TABLE — refonte
+======================== */
+.items-table-new {
+  table-layout: auto;
+  width: 100%;
+  min-width: 600px;
+  border-collapse: collapse;
+}
+
+.items-table-new td,
+.items-table-new th {
+  vertical-align: top;
+  padding: 0.5rem 0.4rem;
+}
+
+.items-table-new td:nth-child(8) {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.4;
+  font-style: italic;
+  color: var(--text-dim);
+}
+
+/* Stats numériques centrées */
+.items-table-new td:nth-child(3),
+.items-table-new td:nth-child(4),
+.items-table-new td:nth-child(5),
+.items-table-new td:nth-child(6),
+.items-table-new td:nth-child(7) {
+  text-align: center;
+  color: var(--text-dim);
+}
+
+.items-table-new td:nth-child(9),
+.items-table-new td:nth-child(10) {
+  text-align: center;
+  vertical-align: middle;
+}
+
+/* =====================
+   FAVORIS & FAMILIERS
+======================== */
+.favori-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-left: 3px solid #3498db;
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.favori-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.favori-nom {
+  font-family: 'Cinzel', serif;
+  font-size: 0.95rem;
+  color: var(--gold);
+  font-weight: 700;
+  flex: 1;
+}
+
+.favori-actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.favori-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.favori-notes {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  font-style: italic;
+  line-height: 1.4;
+  padding-top: 0.25rem;
+  border-top: 1px solid var(--border);
+}

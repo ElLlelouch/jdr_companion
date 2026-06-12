@@ -648,6 +648,10 @@ let genSkills       = [];
 // Statuts
 let statutsCacheMJ  = [];
 
+// Favoris
+let favorisCache    = [];
+let editingFavoriId = null;
+
 // Skills MJ
 let allSkills       = [];
 let editingSkillId  = null;
@@ -1231,6 +1235,196 @@ async function initMessages() {
 }
 
 
+
+// =====================
+// FAVORIS & FAMILIERS
+// =====================
+async function initFavoris() {
+  // Charger depuis Firestore
+  try {
+    const snap = await getDoc(doc(db, 'mj', 'favoris'));
+    favorisCache = snap.exists() ? (snap.data().liste || []) : [];
+  } catch(e) { favorisCache = []; }
+
+  renderFavoris();
+  initModalFavori();
+}
+
+async function sauvegarderFavoris() {
+  await setDoc(doc(db, 'mj', 'favoris'), { liste: favorisCache }, { merge: true });
+}
+
+function renderFavoris() {
+  const list = document.getElementById('favoris-list');
+  if (!list) return;
+  list.innerHTML = '';
+
+  if (!favorisCache.length) {
+    list.innerHTML = '<p class="placeholder-text" style="padding:0.5rem;font-style:italic;color:var(--text-dim)">Aucun favori. Ajoutez des familiers ou PNJs alliés récurrents.</p>';
+    return;
+  }
+
+  favorisCache.forEach((f, i) => {
+    const card = document.createElement('div');
+    card.className = 'favori-card';
+
+    // Header : nom + boutons
+    const header = document.createElement('div');
+    header.className = 'favori-header';
+
+    const nomEl = document.createElement('span');
+    nomEl.className   = 'favori-nom';
+    nomEl.textContent = f.nom;
+
+    const actions = document.createElement('div');
+    actions.className = 'favori-actions';
+
+    // Bouton Ajouter en combat
+    const addBtn = document.createElement('button');
+    addBtn.className   = 'mj-btn-sm mj-btn-sm--ally';
+    addBtn.textContent = '⚔️ En combat';
+    addBtn.addEventListener('click', () => addFavoriToCombat(f));
+
+    // Bouton Éditer
+    const editBtn = document.createElement('button');
+    editBtn.className   = 'mj-btn-sm';
+    editBtn.textContent = '✏️';
+    editBtn.addEventListener('click', () => openFavoriModal(i));
+
+    // Bouton Supprimer
+    const delBtn = document.createElement('button');
+    delBtn.className   = 'mj-btn-sm';
+    delBtn.style.color = '#e74c3c';
+    delBtn.textContent = '🗑️';
+    delBtn.addEventListener('click', async () => {
+      if (!confirm(`Supprimer "${f.nom}" ?`)) return;
+      favorisCache.splice(i, 1);
+      await sauvegarderFavoris();
+      renderFavoris();
+    });
+
+    actions.appendChild(addBtn);
+    actions.appendChild(editBtn);
+    actions.appendChild(delBtn);
+    header.appendChild(nomEl);
+    header.appendChild(actions);
+    card.appendChild(header);
+
+    // Stats
+    const stats = document.createElement('div');
+    stats.className = 'favori-stats';
+    [['PV', f.hp], ['AGI', f.agi], ['ATK', f.atk], ['DEF', f.def], ['MAG', f.mag], ['RES', f.res]].forEach(([label, val]) => {
+      if (!val && val !== 0) return;
+      const badge = document.createElement('span');
+      badge.className   = 'combattant-stat-badge';
+      badge.textContent = `${label} ${val}`;
+      stats.appendChild(badge);
+    });
+    if (f.exp) {
+      const expB = document.createElement('span');
+      expB.className   = 'combattant-stat-badge';
+      expB.style.color = 'var(--gold)';
+      expB.textContent = `EXP ${f.exp}`;
+      stats.appendChild(expB);
+    }
+    card.appendChild(stats);
+
+    // Notes
+    if (f.notes) {
+      const notesEl = document.createElement('div');
+      notesEl.className   = 'favori-notes';
+      notesEl.textContent = f.notes;
+      card.appendChild(notesEl);
+    }
+
+    list.appendChild(card);
+  });
+}
+
+function addFavoriToCombat(f) {
+  ennemis.push({
+    id:          `ally_${Date.now()}`,
+    type:        'ally',
+    nom:         f.nom,
+    hpMax:       f.hp   || 50,
+    hpCurrent:   f.hp   || 50,
+    agi:         f.agi  || 50,
+    atk:         f.atk  || 0,
+    def:         f.def  || 0,
+    mag:         f.mag  || 0,
+    res:         f.res  || 0,
+    exp:         f.exp  || 0,
+    statuts:     [],
+    hpHistory:   [],
+    combatSkills:[],
+  });
+  renderInitiative();
+
+  // Petit feedback visuel
+  const msg = document.createElement('div');
+  msg.className   = 'gen-added-msg';
+  msg.textContent = `✓ ${f.nom} ajouté en tant qu'allié.`;
+  msg.style.cssText = 'position:fixed;bottom:1rem;right:1rem;z-index:9999;background:var(--bg2);border:1px solid var(--border);padding:0.5rem 1rem;border-radius:var(--radius);font-family:Cinzel,serif;font-size:0.75rem;color:#2ecc71';
+  document.body.appendChild(msg);
+  setTimeout(() => msg.remove(), 2500);
+}
+
+function openFavoriModal(idx = null) {
+  const modal = document.getElementById('modal-favori');
+  editingFavoriId = idx;
+  document.getElementById('modal-favori-title').textContent = idx !== null ? 'Modifier le favori' : 'Nouveau favori';
+
+  if (idx !== null) {
+    const f = favorisCache[idx];
+    document.getElementById('favori-nom').value   = f.nom   || '';
+    document.getElementById('favori-hp').value    = f.hp    || 50;
+    document.getElementById('favori-agi').value   = f.agi   || 50;
+    document.getElementById('favori-atk').value   = f.atk   || 0;
+    document.getElementById('favori-def').value   = f.def   || 0;
+    document.getElementById('favori-mag').value   = f.mag   || 0;
+    document.getElementById('favori-res').value   = f.res   || 0;
+    document.getElementById('favori-exp').value   = f.exp   || 0;
+    document.getElementById('favori-notes').value = f.notes || '';
+  } else {
+    ['favori-nom','favori-notes'].forEach(id => document.getElementById(id).value = '');
+    ['favori-hp','favori-agi'].forEach(id => document.getElementById(id).value = '50');
+    ['favori-atk','favori-def','favori-mag','favori-res','favori-exp'].forEach(id => document.getElementById(id).value = '0');
+  }
+  modal.classList.remove('hidden');
+}
+
+function initModalFavori() {
+  document.getElementById('btn-new-favori').addEventListener('click', () => openFavoriModal(null));
+  document.getElementById('favori-cancel').addEventListener('click',  () => document.getElementById('modal-favori').classList.add('hidden'));
+
+  document.getElementById('favori-confirm').addEventListener('click', async () => {
+    const nom = document.getElementById('favori-nom').value.trim();
+    if (!nom) { alert('Nom requis.'); return; }
+
+    const data = {
+      nom,
+      hp:    parseInt(document.getElementById('favori-hp').value)  || 50,
+      agi:   parseInt(document.getElementById('favori-agi').value) || 50,
+      atk:   parseInt(document.getElementById('favori-atk').value) || 0,
+      def:   parseInt(document.getElementById('favori-def').value) || 0,
+      mag:   parseInt(document.getElementById('favori-mag').value) || 0,
+      res:   parseInt(document.getElementById('favori-res').value) || 0,
+      exp:   parseInt(document.getElementById('favori-exp').value) || 0,
+      notes: document.getElementById('favori-notes').value.trim(),
+    };
+
+    if (editingFavoriId !== null) {
+      favorisCache[editingFavoriId] = data;
+    } else {
+      favorisCache.push(data);
+    }
+
+    await sauvegarderFavoris();
+    renderFavoris();
+    document.getElementById('modal-favori').classList.add('hidden');
+  });
+}
+
 // =====================
 // APERÇU
 // =====================
@@ -1629,6 +1823,7 @@ async function init() {
 
   await chargerStatutsMJ();
 
+  await initFavoris();
   await initApercu();
   initStatutsMJ();
   await chargerSkills();
