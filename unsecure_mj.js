@@ -264,6 +264,16 @@ function renderJoueurRow(row, c) {
     statsEl.appendChild(badge);
   });
 
+  // Résistances & Faiblesses joueur
+  const rStr = data.resist   || '';
+  const wStr = data.weakness || '';
+  if (rStr || wStr) {
+    const rwWrap = document.createElement('div'); rwWrap.className='combattant-stats-row'; rwWrap.style.marginTop='0.2rem';
+    if (rStr) { const r=document.createElement('span'); r.className='combattant-stat-badge'; r.style.cssText='color:#3498db;border-color:rgba(52,152,219,0.4);background:rgba(52,152,219,0.08)'; r.textContent='🛡 '+rStr; rwWrap.appendChild(r); }
+    if (wStr) { const w=document.createElement('span'); w.className='combattant-stat-badge'; w.style.cssText='color:#e74c3c;border-color:rgba(231,76,60,0.4);background:rgba(231,76,60,0.08)'; w.textContent='⚡ '+wStr; rwWrap.appendChild(w); }
+    row.appendChild(rwWrap);
+  }
+
   const statutsWrapPJ = document.createElement('div'); statutsWrapPJ.className='combattant-statuts-edit';
   renderStatutsPJ(statutsWrapPJ, c);
 
@@ -321,6 +331,7 @@ function renderCombattantRow(row, c) {
     if(c.hpHistory.length>5) c.hpHistory.pop();
     renderHpHistory(historyEl,c.hpHistory);
     c.hpPending=0;
+    sauvegarderCombat(); // Sauvegarder après flush pour persister hpCurrent
   }
   function changeHp(d) {
     const avant=c.hpCurrent;
@@ -512,8 +523,10 @@ function initModals() {
     const mag=parseInt(document.getElementById('ennemi-mag').value)||0;
     const res=parseInt(document.getElementById('ennemi-res').value)||0;
     const exp=parseInt(document.getElementById('ennemi-exp').value)||0;
-    ennemis.push({id:`${currentKind}_${Date.now()}`,type:currentKind,nom,hpMax,hpCurrent:hpMax,agi,atk,def,mag,res,exp,resist:'',weakness:'',statuts:[],hpHistory:[],hpPending:0,combatSkills:[]});
-    ['ennemi-nom','ennemi-atk','ennemi-def','ennemi-mag','ennemi-res','ennemi-exp'].forEach(id=>document.getElementById(id).value='');
+    const resist=document.getElementById('ennemi-resist').value.trim();
+    const weakness=document.getElementById('ennemi-weakness').value.trim();
+    ennemis.push({id:`${currentKind}_${Date.now()}`,type:currentKind,nom,hpMax,hpCurrent:hpMax,agi,atk,def,mag,res,exp,resist,weakness,statuts:[],hpHistory:[],hpPending:0,combatSkills:[]});
+    ['ennemi-nom','ennemi-atk','ennemi-def','ennemi-mag','ennemi-res','ennemi-exp','ennemi-resist','ennemi-weakness'].forEach(id=>document.getElementById(id).value='');
     ['ennemi-hp-max','ennemi-agi'].forEach(id=>document.getElementById(id).value='50');
     modal.classList.add('hidden');
     await sauvegarderCombat();
@@ -595,6 +608,14 @@ function renderApercu() {
     const gilsEl=document.createElement('div'); gilsEl.className='apercu-gils';
     gilsEl.innerHTML=`<span>Gils : <strong>${data.gils||0}</strong></span><span>KC : <strong>${data.killCount||0}</strong></span>`;
     card.appendChild(gilsEl);
+    // Résistances & Faiblesses joueur dans aperçu
+    if (data.resist || data.weakness) {
+      const rwEl=document.createElement('div'); rwEl.className='apercu-stats';
+      if(data.resist){const r=document.createElement('span');r.className='apercu-stat-badge';r.style.cssText='color:#3498db;border-color:rgba(52,152,219,0.4);background:rgba(52,152,219,0.08)';r.textContent='🛡 '+data.resist;rwEl.appendChild(r);}
+      if(data.weakness){const w=document.createElement('span');w.className='apercu-stat-badge';w.style.cssText='color:#e74c3c;border-color:rgba(231,76,60,0.4);background:rgba(231,76,60,0.08)';w.textContent='⚡ '+data.weakness;rwEl.appendChild(w);}
+      card.appendChild(rwEl);
+    }
+
     const comps=data.competences||[];
     if(comps.length){
       const compsEl=document.createElement('div'); compsEl.className='apercu-comps';
@@ -741,6 +762,9 @@ async function initGenerateur() {
   document.getElementById('gen-add-skill').addEventListener('click',showGenSkillDropdown);
   document.getElementById('gen-add-ally').addEventListener('click',()=>addGenToCombat('ally'));
   document.getElementById('gen-add-enemy').addEventListener('click',()=>addGenToCombat('enemy'));
+  // Résistances/Faiblesses perso dans générateur (champs libres pour personnages)
+  document.getElementById('gen-resist-input')?.addEventListener('input',e=>{if(genCurrentMonster)genCurrentMonster.resist=e.target.value;});
+  document.getElementById('gen-weakness-input')?.addEventListener('input',e=>{if(genCurrentMonster)genCurrentMonster.weakness=e.target.value;});
 }
 
 function buildGenRaceDropdown() {
@@ -859,7 +883,9 @@ async function addGenToCombat(kind) {
   const mag=parseInt(document.getElementById('gen-mag').value)||genCurrentMonster.mag;
   const res=parseInt(document.getElementById('gen-res').value)||genCurrentMonster.res;
   const exp=genCurrentMonster.exp||0;
-  ennemis.push({id:`${kind}_${Date.now()}`,type:kind,nom:genCurrentMonster.name,hpMax:pv,hpCurrent:pv,agi,atk,def,mag,res,exp,resist:genCurrentMonster.resist||'',weakness:genCurrentMonster.weakness||'',statuts:[],hpHistory:[],hpPending:0,combatSkills:genSkills.map(s=>({nom:s.name,desc:s.desc||'',actif:false}))});
+  const finalResist  = document.getElementById('gen-resist-input')?.value  || genCurrentMonster.resist  || '';
+  const finalWeakness= document.getElementById('gen-weakness-input')?.value || genCurrentMonster.weakness || '';
+  ennemis.push({id:`${kind}_${Date.now()}`,type:kind,nom:genCurrentMonster.name,hpMax:pv,hpCurrent:pv,agi,atk,def,mag,res,exp,resist:finalResist,weakness:finalWeakness,statuts:[],hpHistory:[],hpPending:0,combatSkills:genSkills.map(s=>({nom:s.name,desc:s.desc||'',actif:false}))});
   await sauvegarderCombat();
   renderInitiative();
   const kindLabel=kind==='ally'?'allié':'ennemi';

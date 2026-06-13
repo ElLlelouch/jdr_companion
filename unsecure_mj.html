@@ -270,6 +270,18 @@
             <div id="gen-skills-list"></div>
           </div>
 
+          <!-- Résistances & Faiblesses libres (surtout pour personnages) -->
+          <div class="gen-rw-inputs" id="gen-rw-inputs">
+            <div class="gen-bar-row" style="margin-bottom:0.4rem">
+              <span class="gen-stat-label">🛡 Rés.</span>
+              <input class="calc-input" id="gen-resist-input" type="text" placeholder="Résistances..." style="flex:1" />
+            </div>
+            <div class="gen-bar-row">
+              <span class="gen-stat-label">⚡ Faib.</span>
+              <input class="calc-input" id="gen-weakness-input" type="text" placeholder="Faiblesses..." style="flex:1" />
+            </div>
+          </div>
+
           <!-- Actions -->
           <div class="gen-actions">
             <button class="mj-btn mj-btn-sm--ally" id="gen-add-ally">+ Allié</button>
@@ -598,6 +610,14 @@
         <div class="calc-field">
           <label class="calc-label">EXP donnée</label>
           <input class="calc-input no-spin" id="ennemi-exp" type="number" value="0" />
+        </div>
+        <div class="calc-field">
+          <label class="calc-label">🛡 Résistances</label>
+          <input class="calc-input" id="ennemi-resist" type="text" placeholder="ex: Feu, Glace..." />
+        </div>
+        <div class="calc-field">
+          <label class="calc-label">⚡ Faiblesses</label>
+          <input class="calc-input" id="ennemi-weakness" type="text" placeholder="ex: Foudre, Eau..." />
         </div>
       </div>
       <div class="modal-btns">

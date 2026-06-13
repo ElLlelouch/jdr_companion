@@ -1386,6 +1386,18 @@ if (isAppPage) {
       // Construire dropdowns Race/Classe
       buildRaceDropdown(data.race || '', data.classe || '');
 
+      // Faiblesses / Résistances
+      const weaknessInput = document.getElementById('perso-weakness');
+      const resistInput   = document.getElementById('perso-resist');
+      if (weaknessInput) {
+        weaknessInput.value = data.weakness || '';
+        weaknessInput.addEventListener('blur', () => sauvegarder({ weakness: weaknessInput.value }));
+      }
+      if (resistInput) {
+        resistInput.value = data.resist || '';
+        resistInput.addEventListener('blur', () => sauvegarder({ resist: resistInput.value }));
+      }
+
       // onSnapshot statuts — mise à jour en temps réel
       onSnapshot(collection(db,'statuts'), snapshot => {
         snapshot.docChanges().forEach(change => {
