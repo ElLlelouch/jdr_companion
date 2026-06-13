@@ -109,9 +109,21 @@ function loadIntoCalc(atkVal, defVal) {
 // =====================
 // ÉTAT COMBAT
 // =====================
-let joueursData   = {};
-let ennemis       = [];
-let joueursHidden = new Set();
+let joueursData       = {};
+let ennemis           = [];
+let joueursHidden     = new Set();
+let expTotal          = 0;
+let racesDataMJ       = {};
+let monstreTypes      = {};
+let genCurrentMonster = null;
+let genSkills         = [];
+let favorisCache      = [];
+let editingFavoriId   = null;
+let statutsCacheMJ    = [];
+let allSkills         = [];
+let editingSkillId    = null;
+let selectedClasses   = [];
+let allClassesList    = [];
 
 // =====================
 // CALCUL STATS TOTALES JOUEUR
@@ -132,59 +144,6 @@ function calcStatTotal(data, stat) {
 // RENDER INITIATIVE
 // =====================
 function tranche(agi){ return Math.floor(agi/10)*10; }
-
-function updateJoueursInInitiative() {
-  // Si pas encore de combattants affichés, faire un render complet
-  const container = document.getElementById('initiative-container');
-  if (!container || !container.children.length) {
-    renderInitiative();
-    return;
-  }
-  // Sinon, mettre à jour uniquement les données joueurs en mémoire
-  // et re-render seulement si un joueur PJ a changé de tranche d'AGI
-  // (ce qui nécessiterait un re-tri) — sinon juste rafraîchir leurs lignes
-  const STAT_MAP = {ATK:'atk',DEF:'def',MAG:'mag',RESI:'res',AGI:'agi'};
-
-  Object.values(joueursData).forEach(data => {
-    // Trouver la ligne joueur dans le DOM par le nom
-    const rows = container.querySelectorAll('.combattant-row--pj');
-    rows.forEach(row => {
-      const nomEl = row.querySelector('.combattant-nom');
-      if (!nomEl || nomEl.textContent !== data.nom) return;
-
-      // Mettre à jour PV
-      const hpEl = row.querySelector('.combattant-hp-text');
-      if (hpEl) hpEl.textContent = `${data.hpCurrent||0} / ${data.hpMax||0} PV`;
-
-      // Mettre à jour l'historique
-      const histEl = row.querySelector('.hp-history-mj');
-      if (histEl) {
-        const hpHist = (data.historique||[]).filter(e=>e.type==='hp').slice(0,5);
-        renderHpHistory(histEl, hpHist);
-      }
-
-      // Mettre à jour les stats badges
-      const statsRow = row.querySelector('.combattant-stats-row');
-      if (statsRow) {
-        const STATS = ['ATK','DEF','MAG','RESI','AGI'];
-        const badges = statsRow.querySelectorAll('.combattant-stat-badge');
-        STATS.forEach((stat, i) => {
-          const flat  = parseFloat(data[`flat${stat}`]||0);
-          const total = calcStatTotal(data, stat);
-          if (badges[i]) badges[i].textContent = `${stat} ${flat}/${total}`;
-        });
-      }
-
-      // Mettre à jour statuts
-      const statutsWrap = row.querySelector('.combattant-statuts-edit');
-      if (statutsWrap) renderStatutsPJ(statutsWrap, { statuts: data.statuts||[] });
-
-      // Vignette critique
-      const pct = data.hpMax > 0 ? (data.hpCurrent / data.hpMax) * 100 : 0;
-      row.classList.toggle('combattant-row--critique', pct <= 25 && data.hpMax > 0);
-    });
-  });
-}
 
 function renderInitiative() {
   const container=document.getElementById('initiative-container');
@@ -292,9 +251,16 @@ function renderJoueurRow(row, c) {
     statsEl.appendChild(badge);
   });
 
-  const statutsWrapPJ = document.createElement('div');
-  statutsWrapPJ.className = 'combattant-statuts-edit';
-  renderStatutsPJ(statutsWrapPJ, c);
+  const statutsEl=document.createElement('div');
+  statutsEl.className='combattant-statuts-display';
+  (c.statuts||[]).forEach(s=>{
+    if(!s.nom) return;
+    const span=document.createElement('span');
+    span.className='statut-badge';
+    const checked=(s.checks||[]).filter(Boolean).length;
+    span.textContent=checked>0?`${s.nom} (${checked})`:s.nom;
+    statutsEl.appendChild(span);
+  });
 
   const delBtn = document.createElement('button');
   delBtn.className = 'combattant-delete';
@@ -308,7 +274,7 @@ function renderJoueurRow(row, c) {
   row.appendChild(left);
   row.appendChild(historyEl);
   row.appendChild(statsEl);
-  row.appendChild(statutsWrapPJ);
+  row.appendChild(statutsEl);
   row.appendChild(delBtn);
 }
 
@@ -324,33 +290,23 @@ function renderCombattantRow(row, c) {
   const hpTxt=document.createElement('span');  hpTxt.className='combattant-hp-text'; hpTxt.textContent=`${c.hpCurrent}/${c.hpMax}`;
   const btnP=document.createElement('button'); btnP.className='bar-btn bar-btn--sm'; btnP.textContent='+';
 
-  if (!c.hpHistory) c.hpHistory = [];
-  if (!c.hpPending) c.hpPending = 0;  // Accumulation du delta pendant le debounce
-  const historyEl = document.createElement('div');
-  historyEl.className = 'hp-history-mj';
+  if(!c.hpHistory) c.hpHistory=[];
+  const historyEl=document.createElement('div');
+  historyEl.className='hp-history-mj';
   renderHpHistory(historyEl, c.hpHistory);
 
-  let timer = null, isLong = false, histDebounce = null;
-
-  function flushHpHistory() {
-    if (c.hpPending === 0) return;
-    c.hpHistory.unshift({ delta: c.hpPending, after: c.hpCurrent, max: c.hpMax });
-    if (c.hpHistory.length > 5) c.hpHistory.pop();
-    renderHpHistory(historyEl, c.hpHistory);
-    c.hpPending = 0;
-  }
-
-  function changeHp(d) {
-    const avant = c.hpCurrent;
-    c.hpCurrent = Math.max(0, Math.min(c.hpMax, c.hpCurrent + d));
-    hpTxt.textContent = `${c.hpCurrent}/${c.hpMax}`;
-    const p = c.hpMax > 0 ? (c.hpCurrent / c.hpMax) * 100 : 0;
-    row.classList.toggle('combattant-row--critique', p <= 25 && c.hpMax > 0);
-    const delta = c.hpCurrent - avant;
-    if (delta !== 0) {
-      c.hpPending += delta;
-      clearTimeout(histDebounce);
-      histDebounce = setTimeout(flushHpHistory, 3000);
+  let timer=null,isLong=false;
+  function changeHp(d){
+    const avant=c.hpCurrent;
+    c.hpCurrent=Math.max(0,Math.min(c.hpMax,c.hpCurrent+d));
+    hpTxt.textContent=`${c.hpCurrent}/${c.hpMax}`;
+    const p=c.hpMax>0?(c.hpCurrent/c.hpMax)*100:0;
+    row.classList.toggle('combattant-row--critique',p<=25&&c.hpMax>0);
+    const delta=c.hpCurrent-avant;
+    if(delta!==0){
+      c.hpHistory.unshift({delta,after:c.hpCurrent,max:c.hpMax});
+      if(c.hpHistory.length>5) c.hpHistory.pop();
+      renderHpHistory(historyEl,c.hpHistory);
     }
   }
   function att(btn,dir){
@@ -380,71 +336,6 @@ function renderCombattantRow(row, c) {
   });
   row.appendChild(statsEl);
 
-  // EXP si disponible
-  if (c.exp) {
-    const expEl = document.createElement('span');
-    expEl.className   = 'combattant-stat-badge';
-    expEl.textContent = `EXP ${c.exp}`;
-    expEl.style.color = 'var(--gold)';
-    const expWrap = document.createElement('div');
-    expWrap.className = 'combattant-stats-row';
-    expWrap.appendChild(expEl);
-    row.appendChild(expWrap);
-  }
-
-  // Résistances & Faiblesses (stockées en string)
-  const resistStr  = Array.isArray(c.resist)   ? c.resist.join(', ')   : (c.resist   || '');
-  const weakStr    = Array.isArray(c.weakness)  ? c.weakness.join(', ') : (c.weakness || '');
-
-  if (resistStr || weakStr) {
-    const rwWrap = document.createElement('div');
-    rwWrap.className = 'combattant-stats-row';
-    rwWrap.style.marginTop = '0.2rem';
-
-    if (resistStr) {
-      const rLabel = document.createElement('span');
-      rLabel.className = 'combattant-stat-badge';
-      rLabel.style.cssText = 'color:#3498db;border-color:rgba(52,152,219,0.4);background:rgba(52,152,219,0.08)';
-      rLabel.textContent = '🛡 ' + resistStr;
-      rwWrap.appendChild(rLabel);
-    }
-
-    if (weakStr) {
-      const wLabel = document.createElement('span');
-      wLabel.className = 'combattant-stat-badge';
-      wLabel.style.cssText = 'color:#e74c3c;border-color:rgba(231,76,60,0.4);background:rgba(231,76,60,0.08)';
-      wLabel.textContent = '⚡ ' + weakStr;
-      rwWrap.appendChild(wLabel);
-    }
-
-    row.appendChild(rwWrap);
-  }
-
-  // Compétences du monstre (depuis le générateur)
-  if (c.combatSkills && c.combatSkills.length) {
-    const skillsWrap = document.createElement('div');
-    skillsWrap.className = 'combattant-combat-skills';
-    c.combatSkills.forEach((s, si) => {
-      const sRow = document.createElement('div');
-      sRow.className = 'combat-skill-row';
-      const sHeader = document.createElement('div');
-      sHeader.className = 'combat-skill-header';
-      const sName = document.createElement('span');
-      sName.className   = 'combat-skill-name';
-      sName.textContent = s.nom;
-      sHeader.appendChild(sName);
-      sRow.appendChild(sHeader);
-      if (s.desc) {
-        const sDesc = document.createElement('div');
-        sDesc.className   = 'combat-skill-desc';
-        sDesc.textContent = s.desc;
-        sRow.appendChild(sDesc);
-      }
-      skillsWrap.appendChild(sRow);
-    });
-    row.appendChild(skillsWrap);
-  }
-
   const statutsWrap=document.createElement('div');
   statutsWrap.className='combattant-statuts-edit';
   renderCombattantStatuts(statutsWrap,c);
@@ -452,16 +343,7 @@ function renderCombattantRow(row, c) {
 
   const del=document.createElement('button');
   del.className='combattant-delete'; del.textContent='✕';
-  del.addEventListener('click', async () => {
-    // Ajouter l'EXP de cet ennemi au total
-    if (c.exp && c.type === 'enemy') {
-      expTotal += c.exp;
-      majExpTotal();
-    }
-    ennemis = ennemis.filter(e => e.id !== c.id);
-    await sauvegarderCombat();
-    renderInitiative();
-  });
+  del.addEventListener('click',()=>{ennemis=ennemis.filter(e=>e.id!==c.id);renderInitiative();});
   row.appendChild(del);
 }
 
@@ -476,206 +358,29 @@ function renderHpHistory(el, history) {
   });
 }
 
-
-function renderStatutsPJ(wrap, c) {
-  wrap.innerHTML = '';
-  const statuts = c.statuts || [];
-  if (!statuts.length) return;
-
-  const list = document.createElement('div');
-  list.className = 'statuts-list-mj';
-
-  statuts.forEach((s, i) => {
-    if (!s.nom) return;
-    const item = document.createElement('div');
-    const typeClass = s.type==='pos' ? 'statut-item--pos' : s.type==='neg' ? 'statut-item--neg' : s.type ? 'statut-item--other' : '';
-    item.className = `statut-item${typeClass ? ' '+typeClass : ''}`;
-
-    // Nom (lecture seule) + desc
-    const nomWrap = document.createElement('div');
-    nomWrap.className = 'statut-nom-wrap';
-    const nomEl = document.createElement('span');
-    nomEl.className   = 'statut-nom-input';
-    nomEl.textContent = s.nom;
-    nomWrap.appendChild(nomEl);
-    const descText = s.desc || (statutsCacheMJ.find(sc => sc.nom === s.nom)?.desc) || '';
-    if (descText) {
-      const descEl = document.createElement('div');
-      descEl.className   = 'statut-desc-inline';
-      descEl.textContent = descText;
-      nomWrap.appendChild(descEl);
-    }
-    item.appendChild(nomWrap);
-
-    // Cases à cocher (affichage live, non sauvegardées côté MJ)
-    const checks = document.createElement('div');
-    checks.className = 'statut-checks-group';
-    for (let k = 0; k < 5; k++) {
-      if (k === 3) { const sep = document.createElement('div'); sep.className = 'statut-sep'; checks.appendChild(sep); }
-      const cb = document.createElement('input');
-      cb.type      = 'checkbox';
-      cb.className = 'statut-check';
-      cb.checked   = s.checks?.[k] || false;
-      cb.disabled  = true; // lecture seule — les joueurs les gèrent eux-mêmes
-      checks.appendChild(cb);
-    }
-    item.appendChild(checks);
-    list.appendChild(item);
-  });
-
-  wrap.appendChild(list);
-}
-
 function renderCombattantStatuts(wrap, c) {
-  wrap.innerHTML = '';
-  if (!c.statuts) c.statuts = [];
-
-  const list = document.createElement('div');
-  list.className = 'statuts-list-mj';
-
-  c.statuts.forEach((s, i) => {
-    const item = document.createElement('div');
-    item.className = 'statut-item';
-
-    const nomWrap = document.createElement('div');
-    nomWrap.className = 'statut-nom-wrap';
-    const inp = document.createElement('input');
-    inp.className = 'statut-nom-input'; inp.type = 'text';
-    inp.value = s.nom || ''; inp.placeholder = 'Statut...';
-    inp.addEventListener('blur', () => { c.statuts[i].nom = inp.value; });
-    nomWrap.appendChild(inp);
-    if (s.desc) {
-      const descEl = document.createElement('div');
-      descEl.className = 'statut-desc-inline'; descEl.textContent = s.desc;
-      nomWrap.appendChild(descEl);
-    }
-    // Couleur selon type
-    const typeClass = s.type==='pos' ? 'statut-item--pos' : s.type==='neg' ? 'statut-item--neg' : s.type ? 'statut-item--other' : '';
-    if (typeClass) item.classList.add(typeClass);
-
-    const checks = document.createElement('div');
-    checks.className = 'statut-checks-group';
-    for (let k = 0; k < 5; k++) {
-      if (k === 3) { const sep = document.createElement('div'); sep.className = 'statut-sep'; checks.appendChild(sep); }
-      const cb = document.createElement('input');
-      cb.type = 'checkbox'; cb.className = 'statut-check';
-      cb.checked = s.checks?.[k] || false;
-      cb.addEventListener('change', () => {
-        if (!c.statuts[i].checks) c.statuts[i].checks = [false,false,false,false,false];
-        c.statuts[i].checks[k] = cb.checked;
-      });
+  wrap.innerHTML='';
+  if(!c.statuts) c.statuts=[];
+  const list=document.createElement('div'); list.className='statuts-list-mj';
+  c.statuts.forEach((s,i)=>{
+    const item=document.createElement('div'); item.className='statut-item';
+    const inp=document.createElement('input'); inp.className='statut-nom-input'; inp.type='text'; inp.value=s.nom||''; inp.placeholder='Statut...';
+    inp.addEventListener('blur',()=>{c.statuts[i].nom=inp.value;});
+    const checks=document.createElement('div'); checks.className='statut-checks-group';
+    for(let k=0;k<5;k++){
+      if(k===3){const sep=document.createElement('div');sep.className='statut-sep';checks.appendChild(sep);}
+      const cb=document.createElement('input'); cb.type='checkbox'; cb.className='statut-check'; cb.checked=s.checks?.[k]||false;
+      cb.addEventListener('change',()=>{if(!c.statuts[i].checks)c.statuts[i].checks=[false,false,false,false,false];c.statuts[i].checks[k]=cb.checked;});
       checks.appendChild(cb);
     }
-
-    const del = document.createElement('button');
-    del.className = 'statut-del'; del.textContent = '✕';
-    del.addEventListener('click', () => { c.statuts.splice(i, 1); renderCombattantStatuts(wrap, c); });
-
-    item.appendChild(nomWrap);
-    item.appendChild(checks);
-    item.appendChild(del);
+    const del=document.createElement('button'); del.className='statut-del'; del.textContent='✕';
+    del.addEventListener('click',()=>{c.statuts.splice(i,1);renderCombattantStatuts(wrap,c);});
+    item.appendChild(inp); item.appendChild(checks); item.appendChild(del);
     list.appendChild(item);
   });
-
-  const addBtn = document.createElement('button');
-  addBtn.className   = 'statut-add-btn';
-  addBtn.textContent = '+ Statut';
-  addBtn.addEventListener('click', () => showStatutMenuMJ(addBtn, c, wrap, () => sauvegarderCombat()));
-
-  wrap.appendChild(list);
-  wrap.appendChild(addBtn);
-}
-
-function showStatutMenuMJ(anchor, c, wrap, onSave) {
-  const old = document.getElementById('statut-menu-mj');
-  if (old) { old.remove(); return; }
-
-  const menu = document.createElement('div');
-  menu.id = 'statut-menu-mj';
-  menu.className = 'statut-menu-popup';
-
-  const opts = [
-    { label: '✏️ Manuel',            action: () => { c.statuts.push({ nom:'', desc:'', type:'', checks:[false,false,false,false,false] }); renderCombattantStatuts(wrap,c); menu.remove(); if(onSave)onSave(); } },
-    { label: '✦ Positif aléatoire',  cls: 'statut-menu-btn--pos', action: () => {
-      const pool = statutsCacheMJ.filter(s => s.type==='pos');
-      if (!pool.length) return;
-      const s = pool[Math.floor(Math.random()*pool.length)];
-      c.statuts.push({ nom:s.nom, desc:s.desc||'', type:s.type||'pos', checks:[false,false,false,false,false] });
-      renderCombattantStatuts(wrap,c); menu.remove(); if(onSave)onSave();
-    }},
-    { label: '✦ Négatif aléatoire',  cls: 'statut-menu-btn--neg', action: () => {
-      const pool = statutsCacheMJ.filter(s => s.type==='neg');
-      if (!pool.length) return;
-      const s = pool[Math.floor(Math.random()*pool.length)];
-      c.statuts.push({ nom:s.nom, desc:s.desc||'', type:s.type||'neg', checks:[false,false,false,false,false] });
-      renderCombattantStatuts(wrap,c); menu.remove(); if(onSave)onSave();
-    }},
-    { label: '📋 Depuis la liste',   action: () => { menu.remove(); showStatutListeMJ(c, wrap); } },
-  ];
-
-  opts.forEach(o => {
-    const btn = document.createElement('button');
-    btn.className   = `statut-menu-btn${o.cls?' '+o.cls:''}`;
-    btn.textContent = o.label;
-    btn.addEventListener('click', o.action);
-    menu.appendChild(btn);
-  });
-
-  const rect = anchor.getBoundingClientRect();
-  menu.style.cssText = `position:fixed;top:${rect.bottom+4}px;left:${rect.left}px;z-index:9999`;
-  document.body.appendChild(menu);
-
-  setTimeout(() => {
-    document.addEventListener('click', function h(e) {
-      if (!menu.contains(e.target) && e.target !== anchor) { menu.remove(); document.removeEventListener('click', h); }
-    });
-  }, 50);
-}
-
-function showStatutListeMJ(c, wrap) {
-  const overlay = document.createElement('div');
-  overlay.className = 'statut-liste-overlay';
-
-  const box = document.createElement('div');
-  box.className = 'statut-liste-box';
-
-  const title = document.createElement('div');
-  title.className = 'statut-liste-title'; title.textContent = 'Choisir un statut';
-
-  const searchInp = document.createElement('input');
-  searchInp.className = 'statut-liste-search'; searchInp.type = 'text'; searchInp.placeholder = 'Rechercher...';
-
-  const items = document.createElement('div');
-  items.className = 'statut-liste-items';
-
-  function renderListe(filter) {
-    items.innerHTML = '';
-    statutsCacheMJ.filter(s => s.nom.toLowerCase().includes(filter.toLowerCase())).forEach(s => {
-      const row = document.createElement('div');
-      row.className = `statut-liste-row statut-liste-row--${s.type}`;
-      row.innerHTML = `<span class="statut-liste-nom">${s.nom}</span><span class="statut-liste-desc">${s.desc||''}</span>`;
-      row.addEventListener('click', () => {
-        c.statuts.push({ nom:s.nom, desc:s.desc||'', type:s.type||'', checks:[false,false,false,false,false] });
-        renderCombattantStatuts(wrap, c);
-        overlay.remove();
-        if(onSave) onSave();
-      });
-      items.appendChild(row);
-    });
-  }
-
-  searchInp.addEventListener('input', () => renderListe(searchInp.value));
-  renderListe('');
-
-  const closeBtn = document.createElement('button');
-  closeBtn.className = 'statut-liste-close'; closeBtn.textContent = '✕';
-  closeBtn.addEventListener('click', () => overlay.remove());
-
-  box.appendChild(title); box.appendChild(closeBtn);
-  box.appendChild(searchInp); box.appendChild(items);
-  overlay.appendChild(box);
-  document.body.appendChild(overlay);
-  searchInp.focus();
+  const addBtn=document.createElement('button'); addBtn.className='statut-add-btn'; addBtn.textContent='+ Statut';
+  addBtn.addEventListener('click',()=>{c.statuts.push({nom:'',checks:[false,false,false,false,false]});renderCombattantStatuts(wrap,c);});
+  wrap.appendChild(list); wrap.appendChild(addBtn);
 }
 
 // =====================
@@ -694,7 +399,7 @@ function initModals() {
   btnAlly.addEventListener('click', ()=>{titleEl.textContent='Ajouter un allié'; currentKind='ally'; modal.classList.remove('hidden');});
   btnCancel.addEventListener('click',()=>modal.classList.add('hidden'));
 
-  btnOk.addEventListener('click', async ()=>{
+  btnOk.addEventListener('click',()=>{
     const nom   =document.getElementById('ennemi-nom').value.trim()||'Inconnu';
     const hpMax =parseInt(document.getElementById('ennemi-hp-max').value)||50;
     const agi   =parseInt(document.getElementById('ennemi-agi').value)||50;
@@ -702,12 +407,10 @@ function initModals() {
     const def   =parseInt(document.getElementById('ennemi-def').value)||0;
     const mag   =parseInt(document.getElementById('ennemi-mag').value)||0;
     const res   =parseInt(document.getElementById('ennemi-res').value)||0;
-    const exp   =parseInt(document.getElementById('ennemi-exp').value)||0;
-    ennemis.push({id:`${currentKind}_${Date.now()}`,type:currentKind,nom,hpMax,hpCurrent:hpMax,agi,atk,def,mag,res,exp,statuts:[],hpHistory:[],hpPending:0});
-    ['ennemi-nom','ennemi-atk','ennemi-def','ennemi-mag','ennemi-res','ennemi-exp'].forEach(id=>document.getElementById(id).value='');
+    ennemis.push({id:`${currentKind}_${Date.now()}`,type:currentKind,nom,hpMax,hpCurrent:hpMax,agi,atk,def,mag,res,statuts:[],hpHistory:[]});
+    ['ennemi-nom','ennemi-atk','ennemi-def','ennemi-mag','ennemi-res'].forEach(id=>document.getElementById(id).value='');
     ['ennemi-hp-max','ennemi-agi'].forEach(id=>document.getElementById(id).value='50');
     modal.classList.add('hidden');
-    await sauvegarderCombat();
     renderInitiative();
   });
 }
@@ -716,11 +419,10 @@ function initModals() {
 // NOUVEAU COMBAT
 // =====================
 function initNouveauCombat() {
-  document.getElementById('btn-nouveau-combat').addEventListener('click', async ()=>{
+  document.getElementById('btn-nouveau-combat').addEventListener('click',()=>{
     if(!confirm('Réinitialiser le combat ? Les ennemis et alliés seront supprimés.')) return;
     ennemis=[];
     joueursHidden.clear();
-    await sauvegarderCombat();
     renderInitiative();
   });
 }
@@ -731,25 +433,6 @@ function initNouveauCombat() {
 let allItems=[];
 let editingItemId=null;
 const SLOTS_KEYS=['main1Item','main2Item','helmetItem','armorItem','bootsItem','glovesItem','jewelItem'];
-
-// Générateur
-let racesDataMJ     = {};
-let monstreTypes    = {};
-let genCurrentMonster = null;
-let genSkills       = [];
-
-// Statuts
-let statutsCacheMJ  = [];
-
-// Favoris
-let favorisCache    = [];
-let editingFavoriId = null;
-
-// Skills MJ
-let allSkills       = [];
-let editingSkillId  = null;
-let selectedClasses = [];
-let allClassesList  = [];
 
 async function chargerItems() {
   const q=query(collection(db,'items'),orderBy('name'));
@@ -870,417 +553,6 @@ async function deleteItem(itemId, itemName) {
   } catch(err){console.error(err);alert('Erreur suppression.');}
 }
 
-
-// =====================
-// SKILLS MJ
-// =====================
-async function chargerSkills() {
-  const q  = query(collection(db,'skills'), orderBy('name'));
-  const sn = await getDocs(q);
-  allSkills = [];
-  sn.forEach(d => allSkills.push({ id: d.id, ...d.data() }));
-
-  // Charger toutes les classes
-  const racesSnap = await getDocs(collection(db,'races'));
-  allClassesList = [{ nom:'Special', abr:'Spc.' }];
-  racesSnap.forEach(d => {
-    (d.data().classes||[]).forEach(c => {
-      if (!allClassesList.find(x => x.nom === c.nom)) allClassesList.push(c);
-    });
-  });
-  allClassesList.sort((a,b) => a.nom.localeCompare(b.nom));
-
-  // Filtre par classe
-  const filterSelect = document.getElementById('skills-filter-class');
-  if (filterSelect) {
-    // Vider sauf la première option
-    while (filterSelect.options.length > 1) filterSelect.remove(1);
-    allClassesList.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c.nom;
-      opt.textContent = `${c.nom} (${c.abr})`;
-      filterSelect.appendChild(opt);
-    });
-  }
-
-  renderSkills();
-  initSkillsFilters();
-  initModalSkill();
-
-  // onSnapshot propagation vers joueurs
-  onSnapshot(collection(db,'skills'), snapshot => {
-    snapshot.docChanges().forEach(change => {
-      const updated = { id: change.doc.id, ...change.doc.data() };
-      if (change.type === 'modified') {
-        const idx = allSkills.findIndex(s => s.id === updated.id);
-        if (idx !== -1) allSkills[idx] = updated;
-        propagateSkillToJoueurs(updated);
-      } else if (change.type === 'added') {
-        if (!allSkills.find(s => s.id === updated.id)) allSkills.push(updated);
-      } else if (change.type === 'removed') {
-        allSkills = allSkills.filter(s => s.id !== updated.id);
-      }
-    });
-    renderSkills(
-      document.getElementById('skills-search')?.value || '',
-      document.getElementById('skills-filter-class')?.value || ''
-    );
-  });
-}
-
-async function propagateSkillToJoueurs(skill) {
-  const snapshot = await getDocs(collection(db,'joueurs'));
-  const promises = [];
-  snapshot.forEach(docSnap => {
-    const data  = docSnap.data();
-    const comps = data.competences || [];
-    let changed = false;
-    const updated = comps.map(c => {
-      if (c.nom === skill.name) {
-        changed = true;
-        return { ...c, desc: skill.desc||'', range: skill.range||'', pm: skill.pm||0, pc: skill.pc||0, pc_note: skill.pc_note||'' };
-      }
-      return c;
-    });
-    if (changed) promises.push(updateDoc(doc(db,'joueurs',docSnap.id), { competences: updated }));
-  });
-  await Promise.all(promises);
-}
-
-function renderSkills(filter='', classFilter='') {
-  const tbody = document.getElementById('skills-tbody');
-  if (!tbody) return;
-  tbody.innerHTML = '';
-  const filtered = allSkills.filter(s => {
-    const matchName  = s.name.toLowerCase().includes(filter.toLowerCase());
-    const matchClass = classFilter ? (s.classes||'').includes(classFilter) : true;
-    return matchName && matchClass;
-  });
-  if (!filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:1rem;font-style:italic;color:var(--text-dim)">Aucune compétence.</td></tr>';
-    return;
-  }
-  filtered.forEach(skill => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${skill.name}</td>
-      <td style="font-size:0.8rem;color:var(--text-dim);white-space:normal;word-break:break-word;max-width:150px">${skill.classes||''}</td>
-      <td>${skill.range||''}</td>
-      <td style="text-align:center">${skill.pm||0}</td>
-      <td style="text-align:center">${skill.pc > 0 ? skill.pc : (skill.pc_note || 'Maitrise')}</td>
-      <td style="white-space:normal;word-break:break-word;font-style:italic;color:var(--text-dim);max-width:200px">${skill.desc||''}</td>
-      <td><button class="item-edit-btn" data-id="${skill.id}">✏️</button></td>
-      <td><button class="item-del-btn" data-id="${skill.id}" data-name="${skill.name}">🗑️</button></td>
-    `;
-    tbody.appendChild(tr);
-  });
-  tbody.querySelectorAll('.item-edit-btn').forEach(btn => btn.addEventListener('click', () => openSkillModal(btn.dataset.id)));
-  tbody.querySelectorAll('.item-del-btn').forEach(btn => btn.addEventListener('click', () => deleteSkill(btn.dataset.id, btn.dataset.name)));
-}
-
-function initSkillsFilters() {
-  const search = document.getElementById('skills-search');
-  const filter = document.getElementById('skills-filter-class');
-  if (search) search.addEventListener('input', e => renderSkills(e.target.value, filter?.value||''));
-  if (filter) filter.addEventListener('change', e => renderSkills(search?.value||'', e.target.value));
-}
-
-function renderSelectedClasses() {
-  const container = document.getElementById('skill-class-selected');
-  if (!container) return;
-  container.innerHTML = '';
-  selectedClasses.forEach((cls, i) => {
-    const tag = document.createElement('span');
-    tag.className   = 'class-tag';
-    tag.textContent = `${cls} ✕`;
-    tag.addEventListener('click', () => { selectedClasses.splice(i, 1); renderSelectedClasses(); });
-    container.appendChild(tag);
-  });
-}
-
-function openSkillModal(id=null) {
-  const modal = document.getElementById('modal-skill');
-  if (!modal) return;
-  editingSkillId  = id;
-  selectedClasses = [];
-  document.getElementById('modal-skill-title').textContent = id ? "Modifier la compétence" : "Nouvelle compétence";
-  if (id) {
-    const skill = allSkills.find(s => s.id === id);
-    if (!skill) return;
-    document.getElementById('skill-nom').value     = skill.name;
-    document.getElementById('skill-range').value   = skill.range   || '';
-    document.getElementById('skill-pm').value      = skill.pm      || 0;
-    document.getElementById('skill-pc').value      = skill.pc      || 0;
-    document.getElementById('skill-pc-note').value = skill.pc_note || '';
-    document.getElementById('skill-desc').value    = skill.desc    || '';
-    selectedClasses = (skill.classes||'').split(' / ').map(s=>s.trim()).filter(Boolean);
-  } else {
-    ['skill-nom','skill-range','skill-pc-note','skill-desc'].forEach(id => document.getElementById(id).value = '');
-    ['skill-pm','skill-pc'].forEach(id => document.getElementById(id).value = '0');
-  }
-  renderSelectedClasses();
-  modal.classList.remove('hidden');
-}
-
-function initModalSkill() {
-  const btnNew = document.getElementById('btn-new-skill');
-  if (btnNew) btnNew.addEventListener('click', () => openSkillModal(null));
-
-  const btnCancel = document.getElementById('skill-cancel');
-  if (btnCancel) btnCancel.addEventListener('click', () => document.getElementById('modal-skill').classList.add('hidden'));
-
-  const classInput    = document.getElementById('skill-class-input');
-  const classDropdown = document.getElementById('skill-class-dropdown');
-  if (!classInput || !classDropdown) return;
-
-  function renderClassDD(filter) {
-    classDropdown.innerHTML = '';
-    allClassesList
-      .filter(c => c.nom.toLowerCase().includes(filter.toLowerCase()) || c.abr.toLowerCase().includes(filter.toLowerCase()))
-      .filter(c => !selectedClasses.includes(c.nom))
-      .forEach(c => {
-        const opt = document.createElement('div');
-        opt.className   = 'equip-option';
-        opt.textContent = `${c.nom} (${c.abr})`;
-        opt.addEventListener('mousedown', () => {
-          selectedClasses.push(c.nom);
-          classInput.value = '';
-          classDropdown.classList.add('hidden');
-          renderSelectedClasses();
-        });
-        classDropdown.appendChild(opt);
-      });
-  }
-
-  function posClassDD() {
-    const rect = classInput.getBoundingClientRect();
-    classDropdown.style.position  = 'fixed';
-    classDropdown.style.top       = (rect.bottom + 2) + 'px';
-    classDropdown.style.left      = rect.left + 'px';
-    classDropdown.style.width     = Math.max(rect.width, 200) + 'px';
-    classDropdown.style.zIndex    = '9999';
-    classDropdown.style.maxHeight = Math.min(220, window.innerHeight - rect.bottom - 8) + 'px';
-  }
-
-  classInput.addEventListener('focus', () => { renderClassDD(classInput.value); posClassDD(); classDropdown.classList.remove('hidden'); });
-  classInput.addEventListener('input', () => { renderClassDD(classInput.value); posClassDD(); });
-  classInput.addEventListener('blur',  () => setTimeout(() => classDropdown.classList.add('hidden'), 150));
-
-  const btnConfirm = document.getElementById('skill-confirm');
-  if (!btnConfirm) return;
-  btnConfirm.addEventListener('click', async () => {
-    const nom = document.getElementById('skill-nom').value.trim();
-    if (!nom) { alert('Nom requis.'); return; }
-    const oldName = editingSkillId ? allSkills.find(s => s.id === editingSkillId)?.name : null;
-    const skillData = {
-      name:    nom,
-      classes: selectedClasses.join(' / '),
-      range:   document.getElementById('skill-range').value.trim(),
-      pm:      parseInt(document.getElementById('skill-pm').value)     || 0,
-      pc:      parseInt(document.getElementById('skill-pc').value)     || 0,
-      pc_note: document.getElementById('skill-pc-note').value.trim(),
-      desc:    document.getElementById('skill-desc').value.trim(),
-    };
-    try {
-      if (editingSkillId) {
-        await updateDoc(doc(db,'skills',editingSkillId), skillData);
-        const idx = allSkills.findIndex(s => s.id === editingSkillId);
-        if (idx !== -1) allSkills[idx] = { id: editingSkillId, ...skillData };
-        if (oldName && oldName !== nom) await renameSkillInJoueurs(oldName, nom, skillData);
-      } else {
-        const allIds  = allSkills.map(s=>s.id).filter(id=>/^skill_\d+$/.test(id)).map(id=>parseInt(id.replace('skill_',''))).filter(n=>!isNaN(n));
-        const nextNum = allIds.length > 0 ? Math.max(...allIds) + 1 : 1;
-        const newId   = `skill_${String(nextNum).padStart(4,'0')}`;
-        await setDoc(doc(db,'skills',newId), skillData);
-        allSkills.push({ id: newId, ...skillData });
-        allSkills.sort((a,b) => a.name.localeCompare(b.name));
-      }
-      document.getElementById('modal-skill').classList.add('hidden');
-      renderSkills(document.getElementById('skills-search')?.value||'', document.getElementById('skills-filter-class')?.value||'');
-    } catch(err) { console.error(err); alert('Erreur sauvegarde.'); }
-  });
-}
-
-async function renameSkillInJoueurs(oldName, newName, skillData) {
-  const snapshot = await getDocs(collection(db,'joueurs'));
-  const promises = [];
-  snapshot.forEach(docSnap => {
-    const comps = docSnap.data().competences || [];
-    let changed = false;
-    const updated = comps.map(c => {
-      if (c.nom === oldName) { changed = true; return { ...c, nom: newName, ...skillData }; }
-      return c;
-    });
-    if (changed) promises.push(updateDoc(doc(db,'joueurs',docSnap.id), { competences: updated }));
-  });
-  await Promise.all(promises);
-}
-
-async function deleteSkill(skillId, skillName) {
-  const snapshot = await getDocs(collection(db,'joueurs'));
-  let usedBy = null;
-  snapshot.forEach(docSnap => {
-    if ((docSnap.data().competences||[]).find(c => c.nom === skillName)) usedBy = docSnap.data().nom;
-  });
-  if (usedBy) { alert(`Impossible de supprimer "${skillName}" : utilisée par ${usedBy}.`); return; }
-  if (!confirm(`Êtes-vous sûr de vouloir supprimer "${skillName}" ?`)) return;
-  try {
-    const { deleteDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-    await deleteDoc(doc(db,'skills',skillId));
-    allSkills = allSkills.filter(s => s.id !== skillId);
-    renderSkills(document.getElementById('skills-search')?.value||'', document.getElementById('skills-filter-class')?.value||'');
-  } catch(err) { console.error(err); alert('Erreur suppression.'); }
-}
-
-
-// =====================
-// STATUTS MJ
-// =====================
-let editingStatutId = null;
-
-async function chargerStatutsMJ() {
-  renderStatutsMJ();
-  initModalStatut();
-  document.getElementById('statuts-search')?.addEventListener('input', e =>
-    renderStatutsMJ(e.target.value, document.getElementById('statuts-filter-type')?.value||''));
-  document.getElementById('statuts-filter-type')?.addEventListener('change', e =>
-    renderStatutsMJ(document.getElementById('statuts-search')?.value||'', e.target.value));
-}
-
-function initStatutsMJ() {
-  // Appelé dans init() pour attacher les listeners de l'onglet
-}
-
-function renderStatutsMJ(filter='', typeFilter='') {
-  const tbody = document.getElementById('statuts-tbody');
-  if (!tbody) return;
-  tbody.innerHTML = '';
-  const filtered = statutsCacheMJ.filter(s => {
-    const matchNom  = s.nom.toLowerCase().includes(filter.toLowerCase());
-    const matchType = typeFilter ? s.type === typeFilter : true;
-    return matchNom && matchType;
-  });
-  if (!filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:1rem;font-style:italic;color:var(--text-dim)">Aucun statut.</td></tr>';
-    return;
-  }
-  filtered.forEach(statut => {
-    const tr = document.createElement('tr');
-    const typeLabel = statut.type === 'pos' ? '✦ Positif' : statut.type === 'neg' ? '✦ Négatif' : statut.type;
-    const typeColor = statut.type === 'pos' ? '#2ecc71' : statut.type === 'neg' ? '#e74c3c' : '#3498db';
-    tr.innerHTML = `
-      <td>${statut.nom}</td>
-      <td style="font-style:italic;color:var(--text-dim);white-space:normal;word-break:break-word">${statut.desc||''}</td>
-      <td style="color:${typeColor};font-family:'Cinzel',serif;font-size:0.75rem">${typeLabel}</td>
-      <td><button class="item-edit-btn" data-id="${statut.id}">✏️</button></td>
-      <td><button class="item-del-btn" data-id="${statut.id}" data-nom="${statut.nom}">🗑️</button></td>
-    `;
-    tbody.appendChild(tr);
-  });
-  tbody.querySelectorAll('.item-edit-btn').forEach(btn => btn.addEventListener('click', () => openStatutModal(btn.dataset.id)));
-  tbody.querySelectorAll('.item-del-btn').forEach(btn => btn.addEventListener('click', () => deleteStatut(btn.dataset.id, btn.dataset.nom)));
-}
-
-function openStatutModal(id=null) {
-  const modal = document.getElementById('modal-statut');
-  editingStatutId = id;
-  document.getElementById('modal-statut-title').textContent = id ? 'Modifier le statut' : 'Nouveau statut';
-  if (id) {
-    const s = statutsCacheMJ.find(s => s.id === id);
-    if (!s) return;
-    document.getElementById('statut-nom-input').value   = s.nom;
-    document.getElementById('statut-desc-input').value  = s.desc  || '';
-    document.getElementById('statut-type-input').value  = s.type  || 'pos';
-  } else {
-    document.getElementById('statut-nom-input').value   = '';
-    document.getElementById('statut-desc-input').value  = '';
-    document.getElementById('statut-type-input').value  = 'pos';
-  }
-  modal.classList.remove('hidden');
-}
-
-function initModalStatut() {
-  document.getElementById('btn-new-statut')?.addEventListener('click', () => openStatutModal(null));
-  document.getElementById('statut-cancel')?.addEventListener('click', () => document.getElementById('modal-statut').classList.add('hidden'));
-  document.getElementById('statut-confirm')?.addEventListener('click', async () => {
-    const nom  = document.getElementById('statut-nom-input').value.trim();
-    if (!nom) { alert('Nom requis.'); return; }
-    const oldNom = editingStatutId ? statutsCacheMJ.find(s => s.id === editingStatutId)?.nom : null;
-    const data = {
-      nom,
-      desc: document.getElementById('statut-desc-input').value.trim(),
-      type: document.getElementById('statut-type-input').value,
-    };
-    try {
-      if (editingStatutId) {
-        await updateDoc(doc(db,'statuts',editingStatutId), data);
-        const idx = statutsCacheMJ.findIndex(s => s.id === editingStatutId);
-        if (idx !== -1) statutsCacheMJ[idx] = { id: editingStatutId, ...data };
-        if (oldNom && oldNom !== nom) await renameStatutInJoueurs(oldNom, nom, data);
-      } else {
-        const newId = nom.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-          .replace(/[^a-z0-9]/g,'_').replace(/_+/g,'_').replace(/^_|_$/g,'') + '_' + Date.now();
-        await setDoc(doc(db,'statuts',newId), data);
-        statutsCacheMJ.push({ id: newId, ...data });
-        statutsCacheMJ.sort((a,b) => a.nom.localeCompare(b.nom));
-      }
-      document.getElementById('modal-statut').classList.add('hidden');
-      renderStatutsMJ(document.getElementById('statuts-search')?.value||'', document.getElementById('statuts-filter-type')?.value||'');
-    } catch(err) { console.error(err); alert('Erreur sauvegarde.'); }
-  });
-}
-
-async function propagateStatutToJoueurs(statut) {
-  const snapshot = await getDocs(collection(db,'joueurs'));
-  const promises = [];
-  snapshot.forEach(docSnap => {
-    const data = docSnap.data();
-    const stats = data.statuts || [];
-    let changed = false;
-    const updated = stats.map(s => {
-      if (s.nom === statut.nom) {
-        changed = true;
-        return { ...s, desc: statut.desc||'', type: statut.type||'' };
-      }
-      return s;
-    });
-    if (changed) promises.push(updateDoc(doc(db,'joueurs',docSnap.id), { statuts: updated }));
-  });
-  await Promise.all(promises);
-}
-
-async function renameStatutInJoueurs(oldNom, newNom, data) {
-  const snapshot = await getDocs(collection(db,'joueurs'));
-  const promises = [];
-  snapshot.forEach(docSnap => {
-    const stats = docSnap.data().statuts || [];
-    let changed = false;
-    const updated = stats.map(s => {
-      if (s.nom === oldNom) { changed = true; return { ...s, nom: newNom, desc: data.desc||'', type: data.type||'' }; }
-      return s;
-    });
-    if (changed) promises.push(updateDoc(doc(db,'joueurs',docSnap.id), { statuts: updated }));
-  });
-  await Promise.all(promises);
-}
-
-async function deleteStatut(id, nom) {
-  // Vérifier si utilisé par un joueur
-  const snapshot = await getDocs(collection(db,'joueurs'));
-  let usedBy = null;
-  snapshot.forEach(docSnap => {
-    if ((docSnap.data().statuts||[]).find(s => s.nom === nom)) usedBy = docSnap.data().nom;
-  });
-  if (usedBy) { alert(`Impossible de supprimer "${nom}" : utilisé par ${usedBy}.`); return; }
-  if (!confirm(`Êtes-vous sûr de vouloir supprimer "${nom}" ?`)) return;
-  try {
-    const { deleteDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-    await deleteDoc(doc(db,'statuts',id));
-    statutsCacheMJ = statutsCacheMJ.filter(s => s.id !== id);
-    renderStatutsMJ(document.getElementById('statuts-search')?.value||'', document.getElementById('statuts-filter-type')?.value||'');
-  } catch(err) { console.error(err); alert('Erreur suppression.'); }
-}
-
 // =====================
 // NOTES
 // =====================
@@ -1327,611 +599,6 @@ async function initMessages() {
   });
 }
 
-
-
-// =====================
-// COMBAT — persistance Firebase
-// =====================
-async function chargerCombat() {
-  try {
-    const snap = await getDoc(doc(db, 'mj', 'combat'));
-    if (snap.exists()) {
-      const data = snap.data();
-      ennemis  = data.ennemis  || [];
-      expTotal = data.expTotal || 0;
-    }
-  } catch(e) { console.warn('Erreur chargement combat:', e); }
-  majExpTotal();
-}
-
-async function sauvegarderCombat() {
-  try {
-    await setDoc(doc(db, 'mj', 'combat'), {
-      ennemis:  ennemis,
-      expTotal: expTotal,
-    }, { merge: true });
-  } catch(e) { console.warn('Erreur sauvegarde combat:', e); }
-}
-
-function majExpTotal() {
-  const el = document.getElementById('exp-total-val');
-  if (el) el.textContent = expTotal;
-}
-
-// =====================
-// FAVORIS & FAMILIERS
-// =====================
-async function initFavoris() {
-  // Charger depuis Firestore
-  try {
-    const snap = await getDoc(doc(db, 'mj', 'favoris'));
-    favorisCache = snap.exists() ? (snap.data().liste || []) : [];
-  } catch(e) { favorisCache = []; }
-
-  renderFavoris();
-  initModalFavori();
-}
-
-async function sauvegarderFavoris() {
-  await setDoc(doc(db, 'mj', 'favoris'), { liste: favorisCache }, { merge: true });
-}
-
-function renderFavoris() {
-  const list = document.getElementById('favoris-list');
-  if (!list) return;
-  list.innerHTML = '';
-
-  if (!favorisCache.length) {
-    list.innerHTML = '<p class="placeholder-text" style="padding:0.5rem;font-style:italic;color:var(--text-dim)">Aucun favori. Ajoutez des familiers ou PNJs alliés récurrents.</p>';
-    return;
-  }
-
-  favorisCache.forEach((f, i) => {
-    const card = document.createElement('div');
-    card.className = 'favori-card';
-
-    // Header : nom + boutons
-    const header = document.createElement('div');
-    header.className = 'favori-header';
-
-    const nomEl = document.createElement('span');
-    nomEl.className   = 'favori-nom';
-    nomEl.textContent = f.nom;
-
-    const actions = document.createElement('div');
-    actions.className = 'favori-actions';
-
-    // Bouton Ajouter en combat
-    const addBtn = document.createElement('button');
-    addBtn.className   = 'mj-btn-sm mj-btn-sm--ally';
-    addBtn.textContent = '⚔️ En combat';
-    addBtn.addEventListener('click', () => addFavoriToCombat(f));
-
-    // Bouton Éditer
-    const editBtn = document.createElement('button');
-    editBtn.className   = 'mj-btn-sm';
-    editBtn.textContent = '✏️';
-    editBtn.addEventListener('click', () => openFavoriModal(i));
-
-    // Bouton Supprimer
-    const delBtn = document.createElement('button');
-    delBtn.className   = 'mj-btn-sm';
-    delBtn.style.color = '#e74c3c';
-    delBtn.textContent = '🗑️';
-    delBtn.addEventListener('click', async () => {
-      if (!confirm(`Supprimer "${f.nom}" ?`)) return;
-      favorisCache.splice(i, 1);
-      await sauvegarderFavoris();
-      renderFavoris();
-    });
-
-    actions.appendChild(addBtn);
-    actions.appendChild(editBtn);
-    actions.appendChild(delBtn);
-    header.appendChild(nomEl);
-    header.appendChild(actions);
-    card.appendChild(header);
-
-    // Stats
-    const stats = document.createElement('div');
-    stats.className = 'favori-stats';
-    [['PV', f.hp], ['AGI', f.agi], ['ATK', f.atk], ['DEF', f.def], ['MAG', f.mag], ['RES', f.res]].forEach(([label, val]) => {
-      if (!val && val !== 0) return;
-      const badge = document.createElement('span');
-      badge.className   = 'combattant-stat-badge';
-      badge.textContent = `${label} ${val}`;
-      stats.appendChild(badge);
-    });
-    if (f.exp) {
-      const expB = document.createElement('span');
-      expB.className   = 'combattant-stat-badge';
-      expB.style.color = 'var(--gold)';
-      expB.textContent = `EXP ${f.exp}`;
-      stats.appendChild(expB);
-    }
-    card.appendChild(stats);
-
-    // Notes
-    if (f.notes) {
-      const notesEl = document.createElement('div');
-      notesEl.className   = 'favori-notes';
-      notesEl.textContent = f.notes;
-      card.appendChild(notesEl);
-    }
-
-    list.appendChild(card);
-  });
-}
-
-async function addFavoriToCombat(f) {
-  ennemis.push({
-    id:          `ally_${Date.now()}`,
-    type:        'ally',
-    nom:         f.nom,
-    hpMax:       f.hp   || 50,
-    hpCurrent:   f.hp   || 50,
-    agi:         f.agi  || 50,
-    atk:         f.atk  || 0,
-    def:         f.def  || 0,
-    mag:         f.mag  || 0,
-    res:         f.res  || 0,
-    exp:         f.exp  || 0,
-    statuts:     [],
-    hpHistory:   [], hpPending: 0,
-    combatSkills:[],
-  });
-  await sauvegarderCombat();
-  renderInitiative();
-
-  // Petit feedback visuel
-  const msg = document.createElement('div');
-  msg.className   = 'gen-added-msg';
-  msg.textContent = `✓ ${f.nom} ajouté en tant qu'allié.`;
-  msg.style.cssText = 'position:fixed;bottom:1rem;right:1rem;z-index:9999;background:var(--bg2);border:1px solid var(--border);padding:0.5rem 1rem;border-radius:var(--radius);font-family:Cinzel,serif;font-size:0.75rem;color:#2ecc71';
-  document.body.appendChild(msg);
-  setTimeout(() => msg.remove(), 2500);
-}
-
-function openFavoriModal(idx = null) {
-  const modal = document.getElementById('modal-favori');
-  editingFavoriId = idx;
-  document.getElementById('modal-favori-title').textContent = idx !== null ? 'Modifier le favori' : 'Nouveau favori';
-
-  if (idx !== null) {
-    const f = favorisCache[idx];
-    document.getElementById('favori-nom').value   = f.nom   || '';
-    document.getElementById('favori-hp').value    = f.hp    || 50;
-    document.getElementById('favori-agi').value   = f.agi   || 50;
-    document.getElementById('favori-atk').value   = f.atk   || 0;
-    document.getElementById('favori-def').value   = f.def   || 0;
-    document.getElementById('favori-mag').value   = f.mag   || 0;
-    document.getElementById('favori-res').value   = f.res   || 0;
-    document.getElementById('favori-exp').value   = f.exp   || 0;
-    document.getElementById('favori-notes').value = f.notes || '';
-  } else {
-    ['favori-nom','favori-notes'].forEach(id => document.getElementById(id).value = '');
-    ['favori-hp','favori-agi'].forEach(id => document.getElementById(id).value = '50');
-    ['favori-atk','favori-def','favori-mag','favori-res','favori-exp'].forEach(id => document.getElementById(id).value = '0');
-  }
-  modal.classList.remove('hidden');
-}
-
-function initModalFavori() {
-  document.getElementById('btn-new-favori').addEventListener('click', () => openFavoriModal(null));
-  document.getElementById('favori-cancel').addEventListener('click',  () => document.getElementById('modal-favori').classList.add('hidden'));
-
-  document.getElementById('favori-confirm').addEventListener('click', async () => {
-    const nom = document.getElementById('favori-nom').value.trim();
-    if (!nom) { alert('Nom requis.'); return; }
-
-    const data = {
-      nom,
-      hp:    parseInt(document.getElementById('favori-hp').value)  || 50,
-      agi:   parseInt(document.getElementById('favori-agi').value) || 50,
-      atk:   parseInt(document.getElementById('favori-atk').value) || 0,
-      def:   parseInt(document.getElementById('favori-def').value) || 0,
-      mag:   parseInt(document.getElementById('favori-mag').value) || 0,
-      res:   parseInt(document.getElementById('favori-res').value) || 0,
-      exp:   parseInt(document.getElementById('favori-exp').value) || 0,
-      notes: document.getElementById('favori-notes').value.trim(),
-    };
-
-    if (editingFavoriId !== null) {
-      favorisCache[editingFavoriId] = data;
-    } else {
-      favorisCache.push(data);
-    }
-
-    await sauvegarderFavoris();
-    renderFavoris();
-    document.getElementById('modal-favori').classList.add('hidden');
-  });
-}
-
-// =====================
-// APERÇU
-// =====================
-function renderApercu() {
-  const grid = document.getElementById('apercu-grid');
-  if (!grid) return;
-  grid.innerHTML = '';
-
-  const SLOTS_LABELS = {
-    main1Item:'Main 1', main2Item:'Main 2', helmetItem:'Casque',
-    armorItem:'Armure', bootsItem:'Bottes', glovesItem:'Gants', jewelItem:'Bijou'
-  };
-  const STATS = ['ATK','DEF','MAG','RESI','AGI'];
-  const STAT_MAP = {ATK:'atk',DEF:'def',MAG:'mag',RESI:'res',AGI:'agi'};
-
-  const joueurs = Object.values(joueursData).filter(d => !joueursHidden.has(d.id));
-  if (!joueurs.length) {
-    grid.innerHTML = '<p class="placeholder-text" style="padding:1rem">Aucun joueur connecte.</p>';
-    return;
-  }
-
-  joueurs.forEach(data => {
-    const card = document.createElement('div');
-    card.className = 'apercu-card';
-
-    // Header
-    const header = document.createElement('div');
-    header.className = 'apercu-header';
-    const nomEl = document.createElement('div'); nomEl.className='apercu-nom'; nomEl.textContent=data.nom||'—';
-    const subEl = document.createElement('div'); subEl.className='apercu-sub'; subEl.textContent=[data.race,data.classe].filter(Boolean).join(' / ')||'—';
-    const hideBtn = document.createElement('button'); hideBtn.className='combattant-delete'; hideBtn.textContent='✕';
-    hideBtn.addEventListener('click',()=>{ joueursHidden.add(data.id); renderApercu(); });
-    header.appendChild(nomEl); header.appendChild(subEl); header.appendChild(hideBtn);
-    card.appendChild(header);
-
-    // PV/PM
-    const pvpm = document.createElement('div'); pvpm.className='apercu-pvpm';
-    pvpm.innerHTML=`<span class="apercu-bar apercu-bar--hp">PV ${data.hpCurrent||0}/${data.hpMax||0}</span><span class="apercu-bar apercu-bar--mp">PM ${data.mpCurrent||0}/${data.mpMax||0}</span>`;
-    card.appendChild(pvpm);
-
-    // Stats
-    const statsEl = document.createElement('div'); statsEl.className='apercu-stats';
-    STATS.forEach(stat => {
-      const flat=parseFloat(data[`flat${stat}`]||0), bonus=parseFloat(data[`bonus${stat}`]||0), percent=parseFloat(data[`percent${stat}`]||0);
-      const key=STAT_MAP[stat];
-      let equip=0;
-      ['main1Item','main2Item','helmetItem','armorItem','bootsItem','glovesItem','jewelItem'].forEach(s=>{if(data[s]&&data[s][key])equip+=parseInt(data[s][key])||0;});
-      const total=Math.round((flat+equip+bonus)*(1+percent/100));
-      const badge=document.createElement('span'); badge.className='apercu-stat-badge'; badge.textContent=`${stat} ${flat}/${total}`;
-      statsEl.appendChild(badge);
-    });
-    card.appendChild(statsEl);
-
-    // Statuts — nom + desc + avancement
-    const statuts=data.statuts||[];
-    if(statuts.length){
-      const statutsEl=document.createElement('div'); statutsEl.className='apercu-statuts';
-      statuts.forEach(s=>{
-        if(!s.nom)return;
-        const checked=(s.checks||[]).filter(Boolean).length;
-        const tag=document.createElement('div'); tag.className='apercu-statut-row';
-        const nomEl=document.createElement('span'); nomEl.className='apercu-statut-nom'; nomEl.textContent=s.nom+(checked>0?` (${checked}/5)`:'');
-        tag.appendChild(nomEl);
-        const descText = s.desc || (statutsCacheMJ.find(sc=>sc.nom===s.nom)?.desc) || '';
-        if(descText){const descEl=document.createElement('div');descEl.className='apercu-statut-desc';descEl.textContent=descText;tag.appendChild(descEl);}
-        // Couleur selon type
-        const sType = s.type || (statutsCacheMJ.find(sc=>sc.nom===s.nom)?.type) || '';
-        const sClass = sType==='pos' ? 'apercu-statut-row--pos' : sType==='neg' ? 'apercu-statut-row--neg' : sType ? 'apercu-statut-row--oth' : '';
-        if(sClass) tag.classList.add(sClass);
-        statutsEl.appendChild(tag);
-      });
-      card.appendChild(statutsEl);
-    }
-
-    // Equipements
-    const equipEl=document.createElement('div'); equipEl.className='apercu-equip';
-    Object.entries(SLOTS_LABELS).forEach(([key,label])=>{
-      const item=data[key]; const row=document.createElement('div'); row.className='apercu-equip-row';
-      row.innerHTML=`<span class="apercu-equip-slot">${label}</span><span class="apercu-equip-name">${item?.name||'—'}</span>`;
-      equipEl.appendChild(row);
-    });
-    card.appendChild(equipEl);
-
-    // Gils / KC
-    const gilsEl=document.createElement('div'); gilsEl.className='apercu-gils';
-    gilsEl.innerHTML=`<span>Gils : <strong>${data.gils||0}</strong></span><span>KC : <strong>${data.killCount||0}</strong></span>`;
-    card.appendChild(gilsEl);
-
-    // Competences
-    const comps=data.competences||[];
-    if(comps.length){
-      const compsEl=document.createElement('div'); compsEl.className='apercu-comps';
-      const title=document.createElement('div'); title.className='apercu-section-title'; title.textContent='Competences';
-      compsEl.appendChild(title);
-      comps.forEach(c=>{
-        if(!c.nom)return;
-        const row=document.createElement('div'); row.className='apercu-comp-row';
-        const maitrise=(c.pc>0&&c.maitrise&&parseInt(c.maitrise)<c.pc)?` — ${c.maitrise}/${c.pc}`:'';
-        row.textContent=`${c.nom}${maitrise}`;
-        compsEl.appendChild(row);
-      });
-      card.appendChild(compsEl);
-    }
-
-    grid.appendChild(card);
-  });
-}
-
-async function initApercu() {}
-
-// =====================
-// GENERATEUR
-// =====================
-function randBetween(min, max) { return min + Math.random() * (max - min); }
-
-function calcStatMonster(base, growth, level) {
-  return Math.round(base + growth * level * (randBetween(100, 120) / 100));
-}
-
-function calcStatHuman(growth, level, statType) {
-  if (statType === 'PV') return Math.round(20 + growth * 6 * (1 + (20 * Math.random()) / 100));
-  if (statType === 'PM') return Math.round(5  + growth * 2 * (1 + (20 * Math.random()) / 100));
-  return Math.round(10 + growth * 4 * (1 + (20 * Math.random()) / 100));
-}
-
-function calcExp(m, level) {
-  const baseExp   = ((m.baseAtk+m.baseDef+m.baseMag+m.baseRes+m.baseAgi)/2 + m.basePV/3 + m.basePM) / 2;
-  const growthExp = ((m.growthAtk+m.growthDef+m.growthMag+m.growthRes+m.growthAgi)/2 + m.growthPV/3 + m.growthPM) / 2;
-  return Math.round(baseExp + growthExp * level * (randBetween(150, 200) / 100));
-}
-
-async function initGenerateur() {
-  // Charger races
-  if (!Object.keys(racesDataMJ).length) {
-    const snap = await getDocs(collection(db,'races'));
-    snap.forEach(d => { racesDataMJ[d.id] = d.data(); });
-  }
-
-  // Charger types de monstres pour le dropdown
-  const typeSelect = document.getElementById('gen-type');
-  console.log('initGenerateur — typeSelect trouvé:', !!typeSelect);
-  try {
-    const monstersSnap = await getDocs(collection(db,'monsters'));
-    console.log('monsters collection size:', monstersSnap.size);
-    const monsterNames = [];
-    monstersSnap.forEach(d => {
-      const data = d.data();
-      monstreTypes[d.id] = data;
-      if (data.monster) monsterNames.push(data.monster);
-    });
-    monsterNames.sort((a,b) => a.localeCompare(b));
-    console.log('monsterNames:', monsterNames.length, monsterNames.slice(0,3));
-
-    // Vider les options existantes sauf les 2 premières (— Choisir — et Personnage)
-    while (typeSelect.options.length > 2) typeSelect.remove(2);
-
-    monsterNames.forEach(name => {
-      const opt = document.createElement('option');
-      opt.value = name; opt.textContent = name;
-      typeSelect.appendChild(opt);
-    });
-    console.log('Options finales dans gen-type:', typeSelect.options.length);
-  } catch(err) {
-    console.error('Erreur chargement monstres:', err);
-  }
-
-  const humanFields = document.getElementById('gen-humanoid-fields');
-  const genBtn      = document.getElementById('gen-btn');
-
-  typeSelect.addEventListener('change', () => {
-    const isHuman = typeSelect.value === 'personnage';
-    humanFields.style.display = isHuman ? 'block' : 'none';
-    genBtn.disabled = !typeSelect.value;
-  });
-
-  buildGenRaceDropdown();
-  genBtn.addEventListener('click', genererMonstre);
-  document.getElementById('gen-add-skill').addEventListener('click', showGenSkillDropdown);
-  document.getElementById('gen-add-ally').addEventListener('click',  () => addGenToCombat('ally'));
-  document.getElementById('gen-add-enemy').addEventListener('click', () => addGenToCombat('enemy'));
-}
-
-function buildGenRaceDropdown() {
-  const input=document.getElementById('gen-race-input'), dropdown=document.getElementById('gen-race-dropdown');
-  function renderDD(filter){ dropdown.innerHTML=''; Object.values(racesDataMJ).filter(r=>r.nom.toLowerCase().includes(filter.toLowerCase())).sort((a,b)=>a.nom.localeCompare(b.nom)).forEach(race=>{ const opt=document.createElement('div'); opt.className='equip-option'; opt.textContent=race.nom; opt.addEventListener('mousedown',()=>{ input.value=race.nom; dropdown.classList.add('hidden'); buildGenClasseDropdown(race); }); dropdown.appendChild(opt); }); }
-  function posDD(){ const rect=input.getBoundingClientRect(); dropdown.style.cssText=`position:fixed;top:${rect.bottom+2}px;left:${rect.left}px;width:${Math.max(rect.width,160)}px;z-index:9999;max-height:${Math.min(220,window.innerHeight-rect.bottom-8)}px`; }
-  input.addEventListener('focus',()=>{ renderDD(input.value); posDD(); dropdown.classList.remove('hidden'); });
-  input.addEventListener('input',()=>{ renderDD(input.value); posDD(); });
-  input.addEventListener('blur', ()=>setTimeout(()=>dropdown.classList.add('hidden'),150));
-}
-
-function buildGenClasseDropdown(race) {
-  const input=document.getElementById('gen-classe-input'), dropdown=document.getElementById('gen-classe-dropdown');
-  const newInput=input.cloneNode(true); input.parentNode.replaceChild(newInput,input); newInput.value='';
-  function renderDD(filter){ dropdown.innerHTML=''; (race.classes||[]).filter(c=>c.nom.toLowerCase().includes(filter.toLowerCase())).forEach(cls=>{ const opt=document.createElement('div'); opt.className='equip-option'; opt.textContent=`${cls.nom} (${cls.abr})`; opt.addEventListener('mousedown',()=>{ newInput.value=cls.nom; dropdown.classList.add('hidden'); }); dropdown.appendChild(opt); }); }
-  function posDD(){ const rect=newInput.getBoundingClientRect(); dropdown.style.cssText=`position:fixed;top:${rect.bottom+2}px;left:${rect.left}px;width:${Math.max(rect.width,160)}px;z-index:9999;max-height:${Math.min(220,window.innerHeight-rect.bottom-8)}px`; }
-  newInput.addEventListener('focus',()=>{ renderDD(newInput.value); posDD(); dropdown.classList.remove('hidden'); });
-  newInput.addEventListener('input',()=>{ renderDD(newInput.value); posDD(); });
-  newInput.addEventListener('blur', ()=>setTimeout(()=>dropdown.classList.add('hidden'),150));
-}
-
-async function genererMonstre() {
-  const typeVal = document.getElementById('gen-type').value;
-  const level   = parseInt(document.getElementById('gen-level').value) || 1;
-  const name    = document.getElementById('gen-name').value.trim() || typeVal;
-  const isHuman = typeVal === 'personnage';
-  let monsterData = null, subLabel = '', availableSkills = [];
-
-  if (isHuman) {
-    const raceRaw   = document.getElementById('gen-race-input').value;
-    const classeRaw = document.getElementById('gen-classe-input')?.value || '';
-    // Normaliser en minuscules pour correspondre aux données Firebase
-    const race   = raceRaw.toLowerCase();
-    const classe = classeRaw.toLowerCase();
-    subLabel = [raceRaw, classeRaw].filter(Boolean).join(' / ');
-    const snap = await getDocs(query(collection(db,'enemy_classes'), where('race','==',race), where('classe','==',classe)));
-    if (snap.empty) { alert(`Aucune donnee pour ${subLabel}.`); return; }
-    snap.forEach(d => { monsterData = d.data(); });
-    // Calculer les baseStat depuis growth
-    // basePV  = 20 + growth*6  * RAND(1.2,1.5)
-    // basePM  = 5  + growth*2  * RAND(1.2,1.5)
-    // baseStat= 10 + growth*4  * RAND(1.2,1.5)
-    function humanBase(fixed, growth, ratio) {
-      const mult = 1.2 + Math.random() * 0.3;
-      return Math.round(fixed + growth * ratio * mult);
-    }
-    monsterData = {
-      ...monsterData,
-      basePV:  humanBase(20, monsterData.growthPV,  6),
-      basePM:  humanBase(5,  monsterData.growthPM,  2),
-      baseAtk: humanBase(10, monsterData.growthAtk, 4),
-      baseDef: humanBase(10, monsterData.growthDef, 4),
-      baseMag: humanBase(10, monsterData.growthMag, 4),
-      baseRes: humanBase(10, monsterData.growthRes, 4),
-      baseAgi: humanBase(10, monsterData.growthAgi, 4),
-    };
-    // Récupérer toutes les classes de la race pour filtrer les skills
-    const raceObj = Object.values(racesDataMJ).find(r => r.nom.toLowerCase() === race);
-    const raceClasseNoms = raceObj ? raceObj.classes.map(c => c.nom.toLowerCase()) : [classe];
-    const raceClasseMap  = {};
-    if (raceObj) raceObj.classes.forEach(c => { raceClasseMap[c.nom.toLowerCase()] = c.abr; });
-
-    const skillsSnap = await getDocs(collection(db,'skills'));
-    skillsSnap.forEach(d => {
-      const s = d.data();
-      const parts = (s.classes||'').split(' / ').map(p => p.trim().toLowerCase());
-      // Inclure si au moins une classe de la race peut l'apprendre, ou si Special
-      if (parts.includes('special') || parts.some(p => raceClasseNoms.includes(p))) {
-        // Construire le label avec les abréviations des classes de la race
-        const abrs = parts.filter(p => raceClasseMap[p]).map(p => raceClasseMap[p]);
-        const label = abrs.length ? `${s.name} (${abrs.join(' / ')})` : s.name;
-        availableSkills.push({ id: d.id, ...s, label });
-      }
-    });
-    availableSkills.sort((a,b) => a.name.localeCompare(b.name));
-  } else {
-    const monsterEntry = Object.values(monstreTypes).find(m => m.monster === typeVal);
-    if (!monsterEntry) { alert(`Monstre "${typeVal}" introuvable.`); return; }
-    monsterData = monsterEntry;
-    subLabel    = typeVal;
-    const skillsSnap = await getDocs(collection(db,'skills'));
-    skillsSnap.forEach(d => { const s=d.data(); if((s.classes||'').includes(typeVal)) availableSkills.push({id:d.id,...s}); });
-  }
-
-  // total = base + growth * level * RAND(1.2,1.5) pour personnages
-  // total = base + growth * level * RAND(1.0,1.2) pour monstres
-  function calcFinalStat(base, growth, lvl, human) {
-    const minR = human ? 1.2 : 1.0;
-    const maxR = human ? 1.5 : 1.2;
-    const mult = minR + Math.random() * (maxR - minR);
-    return Math.round(base + growth * lvl * mult);
-  }
-  const pv  = calcFinalStat(monsterData.basePV,  monsterData.growthPV,  level, isHuman);
-  const pm  = calcFinalStat(monsterData.basePM,  monsterData.growthPM,  level, isHuman);
-  const atk = calcFinalStat(monsterData.baseAtk, monsterData.growthAtk, level, isHuman);
-  const def = calcFinalStat(monsterData.baseDef, monsterData.growthDef, level, isHuman);
-  const mag = calcFinalStat(monsterData.baseMag, monsterData.growthMag, level, isHuman);
-  const res = calcFinalStat(monsterData.baseRes, monsterData.growthRes, level, isHuman);
-  const agi = calcFinalStat(monsterData.baseAgi, monsterData.growthAgi, level, isHuman);
-  const exp = calcExp({...monsterData, baseAtk:monsterData.baseAtk||atk, baseDef:monsterData.baseDef||def, baseMag:monsterData.baseMag||mag, baseRes:monsterData.baseRes||res, baseAgi:monsterData.baseAgi||agi, basePV:monsterData.basePV||pv, basePM:monsterData.basePM||pm}, level);
-
-  genCurrentMonster = {
-    name, subLabel, typeVal, level, pv, pm, atk, def, mag, res, agi, exp,
-    availableSkills,
-    resist:   isHuman ? '' : (monsterData.resist   || ''),
-    weakness: isHuman ? '' : (monsterData.weakness || ''),
-  };
-  genSkills = [];
-
-  document.getElementById('gen-result').classList.remove('hidden');
-  document.getElementById('gen-result-name').textContent  = name;
-  document.getElementById('gen-result-sub').textContent   = subLabel;
-  document.getElementById('gen-result-level').textContent = level;
-  ['pv','pm','atk','def','mag','res','agi'].forEach(k => document.getElementById(`gen-${k}`).value = eval(k));
-  document.getElementById('gen-exp').textContent = exp;
-  document.getElementById('gen-skills-list').innerHTML = '';
-
-  // Afficher resist/weakness dans le résultat
-  const genRwEl = document.getElementById('gen-rw');
-  if (genRwEl) {
-    genRwEl.innerHTML = '';
-    const rStr = genCurrentMonster.resist   || '';
-    const wStr = genCurrentMonster.weakness || '';
-    if (rStr) {
-      const r = document.createElement('span');
-      r.className = 'combattant-stat-badge';
-      r.style.cssText = 'color:#3498db;border-color:rgba(52,152,219,0.4);background:rgba(52,152,219,0.08)';
-      r.textContent = '🛡 ' + rStr;
-      genRwEl.appendChild(r);
-    }
-    if (wStr) {
-      const w = document.createElement('span');
-      w.className = 'combattant-stat-badge';
-      w.style.cssText = 'color:#e74c3c;border-color:rgba(231,76,60,0.4);background:rgba(231,76,60,0.08)';
-      w.textContent = '⚡ ' + wStr;
-      genRwEl.appendChild(w);
-    }
-  }
-}
-
-function showGenSkillDropdown() {
-  if(!genCurrentMonster) return;
-  const list=document.getElementById('gen-skills-list');
-  const wrapper=document.createElement('div'); wrapper.style.position='relative';
-  const input=document.createElement('input'); input.className='calc-input'; input.type='text'; input.placeholder='Rechercher...';
-  const dropdown=document.createElement('div'); dropdown.className='equip-dropdown';
-  function renderDD(filter){ dropdown.innerHTML=''; genCurrentMonster.availableSkills.filter(s=>(s.label||s.name).toLowerCase().includes(filter.toLowerCase())&&!genSkills.find(g=>g.name===s.name)).forEach(skill=>{ const opt=document.createElement('div'); opt.className='equip-option'; opt.textContent=skill.label||skill.name; opt.addEventListener('mousedown',()=>{ genSkills.push(skill); wrapper.remove(); renderGenSkills(); }); dropdown.appendChild(opt); }); }
-  function posDD(){ const rect=input.getBoundingClientRect(); dropdown.style.cssText=`position:fixed;top:${rect.bottom+2}px;left:${rect.left}px;width:${Math.max(rect.width,200)}px;z-index:9999;max-height:${Math.min(220,window.innerHeight-rect.bottom-8)}px`; }
-  input.addEventListener('focus',()=>{ renderDD(''); posDD(); });
-  input.addEventListener('input',()=>{ renderDD(input.value); posDD(); });
-  input.addEventListener('blur', ()=>setTimeout(()=>{ dropdown.remove(); wrapper.remove(); },200));
-  wrapper.appendChild(input); wrapper.appendChild(dropdown); list.appendChild(wrapper); input.focus();
-}
-
-function renderGenSkills() {
-  const list=document.getElementById('gen-skills-list'); list.innerHTML='';
-  genSkills.forEach((skill,i)=>{
-    const row=document.createElement('div'); row.className='gen-skill-row gen-skill-row--full';
-    const header=document.createElement('div'); header.className='gen-skill-header';
-    header.innerHTML=`<span class="gen-skill-name">${skill.name}</span><span class="gen-skill-range">${skill.range||''}</span>`;
-    const delBtn=document.createElement('button'); delBtn.className='combattant-delete'; delBtn.textContent='✕';
-    delBtn.addEventListener('click',()=>{ genSkills.splice(i,1); renderGenSkills(); });
-    header.appendChild(delBtn);
-    row.appendChild(header);
-    if(skill.desc){
-      const desc=document.createElement('div'); desc.className='gen-skill-desc'; desc.textContent=skill.desc;
-      row.appendChild(desc);
-    }
-    list.appendChild(row);
-  });
-}
-
-async function addGenToCombat(kind) {
-  if(!genCurrentMonster) return;
-  const pv  = parseInt(document.getElementById('gen-pv').value)  || genCurrentMonster.pv;
-  const agi = parseInt(document.getElementById('gen-agi').value) || genCurrentMonster.agi;
-  const atk = parseInt(document.getElementById('gen-atk').value) || genCurrentMonster.atk;
-  const def = parseInt(document.getElementById('gen-def').value) || genCurrentMonster.def;
-  const mag = parseInt(document.getElementById('gen-mag').value) || genCurrentMonster.mag;
-  const res = parseInt(document.getElementById('gen-res').value) || genCurrentMonster.res;
-  const exp = genCurrentMonster.exp || 0;
-
-  ennemis.push({
-    id: `${kind}_${Date.now()}`,
-    type: kind,
-    nom: genCurrentMonster.name,
-    hpMax: pv, hpCurrent: pv,
-    agi, atk, def, mag, res, exp,
-    resist:   genCurrentMonster.resist   || [],
-    weakness: genCurrentMonster.weakness || [],
-    statuts: [], hpHistory: [], hpPending: 0,
-    combatSkills: genSkills.map(s => ({ nom: s.name, desc: s.desc||'', actif: false })),
-  });
-  await sauvegarderCombat();
-  renderInitiative();
-
-  // Message de confirmation
-  const msgEl = document.getElementById('gen-added-msg');
-  const kindLabel = kind === 'ally' ? 'allié' : 'ennemi';
-  msgEl.textContent = `✓ ${genCurrentMonster.name} ajouté en tant qu'${kindLabel}.`;
-  msgEl.classList.remove('hidden');
-  setTimeout(() => msgEl.classList.add('hidden'), 3000);
-}
-
 // =====================
 // INIT
 // =====================
@@ -1948,53 +615,6 @@ async function init() {
   document.getElementById('items-filter-type').addEventListener('change',e=>renderItems(document.getElementById('items-search').value,e.target.value));
   onSnapshot(collection(db,'joueurs'),snapshot=>{
     snapshot.forEach(d=>{joueursData[d.id]={id:d.id,...d.data()};});
-    // Mettre à jour uniquement les lignes joueurs dans l'initiative
-    // sans toucher aux ennemis/alliés (qui ont des PV modifiés en mémoire)
-    updateJoueursInInitiative();
-    renderApercu();
+    renderInitiative();
   });
-
-  // Charger statuts
-  const statutsSnap = await getDocs(collection(db,'statuts'));
-  statutsCacheMJ = [];
-  statutsSnap.forEach(d => statutsCacheMJ.push({ id: d.id, ...d.data() }));
-  statutsCacheMJ.sort((a,b) => a.nom.localeCompare(b.nom));
-
-  // onSnapshot statuts — propagation vers joueurs
-  onSnapshot(collection(db,'statuts'), snapshot => {
-    snapshot.docChanges().forEach(change => {
-      const updated = { id: change.doc.id, ...change.doc.data() };
-      if (change.type === 'modified') {
-        const idx = statutsCacheMJ.findIndex(s => s.id === updated.id);
-        if (idx !== -1) statutsCacheMJ[idx] = updated;
-        propagateStatutToJoueurs(updated);
-      } else if (change.type === 'added') {
-        if (!statutsCacheMJ.find(s => s.id === updated.id)) statutsCacheMJ.push(updated);
-      } else if (change.type === 'removed') {
-        statutsCacheMJ = statutsCacheMJ.filter(s => s.id !== updated.id);
-      }
-    });
-    renderStatutsMJ(
-      document.getElementById('statuts-search')?.value || '',
-      document.getElementById('statuts-filter-type')?.value || ''
-    );
-  });
-
-  await chargerStatutsMJ();
-
-  await initFavoris();
-  await chargerCombat();
-
-  // Reset EXP
-  document.getElementById('btn-reset-exp')?.addEventListener('click', async () => {
-    if (!confirm('Remettre l\'EXP a zero ?')) return;
-    expTotal = 0;
-    majExpTotal();
-    await sauvegarderCombat();
-  });
-
-  await initApercu();
-  initStatutsMJ();
-  await chargerSkills();
-  await initGenerateur();
 }
