@@ -1688,8 +1688,10 @@ async function initGenerateur() {
 
   // Charger types de monstres pour le dropdown
   const typeSelect = document.getElementById('gen-type');
+  console.log('initGenerateur — typeSelect trouvé:', !!typeSelect);
   try {
     const monstersSnap = await getDocs(collection(db,'monsters'));
+    console.log('monsters collection size:', monstersSnap.size);
     const monsterNames = [];
     monstersSnap.forEach(d => {
       const data = d.data();
@@ -1697,6 +1699,7 @@ async function initGenerateur() {
       if (data.monster) monsterNames.push(data.monster);
     });
     monsterNames.sort((a,b) => a.localeCompare(b));
+    console.log('monsterNames:', monsterNames.length, monsterNames.slice(0,3));
 
     // Vider les options existantes sauf les 2 premières (— Choisir — et Personnage)
     while (typeSelect.options.length > 2) typeSelect.remove(2);
@@ -1706,7 +1709,7 @@ async function initGenerateur() {
       opt.value = name; opt.textContent = name;
       typeSelect.appendChild(opt);
     });
-    console.log(`Générateur : ${monsterNames.length} types de monstres chargés.`);
+    console.log('Options finales dans gen-type:', typeSelect.options.length);
   } catch(err) {
     console.error('Erreur chargement monstres:', err);
   }
