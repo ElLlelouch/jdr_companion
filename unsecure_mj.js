@@ -511,8 +511,47 @@ function initModals() {
   const btnOk=document.getElementById('ennemi-confirm');
   const btnCancel=document.getElementById('ennemi-cancel');
   let currentKind='enemy';
-  btnEnemy.addEventListener('click',()=>{titleEl.textContent='Ajouter un ennemi';currentKind='enemy';modal.classList.remove('hidden');});
-  btnAlly.addEventListener('click',()=>{titleEl.textContent='Ajouter un allié';currentKind='ally';modal.classList.remove('hidden');});
+  let ennemiSkills=[];
+
+  function resetModal() {
+    ennemiSkills=[];
+    document.getElementById('ennemi-skills-list').innerHTML='';
+    document.getElementById('ennemi-skill-input').value='';
+  }
+
+  function renderEnnemiSkills() {
+    const list=document.getElementById('ennemi-skills-list'); list.innerHTML='';
+    ennemiSkills.forEach((s,i)=>{
+      const row=document.createElement('div'); row.className='gen-skill-row gen-skill-row--full';
+      const h=document.createElement('div'); h.className='gen-skill-header';
+      h.innerHTML=`<span class="gen-skill-name">${s.name}</span><span class="gen-skill-range">${s.range||''}</span>`;
+      const del=document.createElement('button'); del.className='combattant-delete'; del.textContent='✕';
+      del.addEventListener('click',()=>{ennemiSkills.splice(i,1);renderEnnemiSkills();});
+      h.appendChild(del); row.appendChild(h);
+      if(s.desc){const d=document.createElement('div');d.className='gen-skill-desc';d.textContent=s.desc;row.appendChild(d);}
+      list.appendChild(row);
+    });
+  }
+
+  // Dropdown compétences dans le modal
+  const skillInput=document.getElementById('ennemi-skill-input');
+  const skillDropdown=document.getElementById('ennemi-skill-dropdown');
+  function renderSkillDD(filter){
+    skillDropdown.innerHTML='';
+    allSkills.filter(s=>s.name.toLowerCase().includes(filter.toLowerCase())&&!ennemiSkills.find(e=>e.name===s.name))
+    .slice(0,20).forEach(s=>{
+      const opt=document.createElement('div'); opt.className='equip-option'; opt.textContent=s.name;
+      opt.addEventListener('mousedown',()=>{ennemiSkills.push(s);skillInput.value='';skillDropdown.classList.add('hidden');renderEnnemiSkills();});
+      skillDropdown.appendChild(opt);
+    });
+  }
+  function posSkillDD(){const rect=skillInput.getBoundingClientRect();skillDropdown.style.cssText=`position:fixed;top:${rect.bottom+2}px;left:${rect.left}px;width:${Math.max(rect.width,200)}px;z-index:9999;max-height:${Math.min(220,window.innerHeight-rect.bottom-8)}px`;}
+  skillInput.addEventListener('focus',()=>{renderSkillDD(skillInput.value);posSkillDD();skillDropdown.classList.remove('hidden');});
+  skillInput.addEventListener('input',()=>{renderSkillDD(skillInput.value);posSkillDD();});
+  skillInput.addEventListener('blur',()=>setTimeout(()=>skillDropdown.classList.add('hidden'),150));
+
+  btnEnemy.addEventListener('click',()=>{titleEl.textContent='Ajouter un ennemi';currentKind='enemy';resetModal();modal.classList.remove('hidden');});
+  btnAlly.addEventListener('click',()=>{titleEl.textContent='Ajouter un allié';currentKind='ally';resetModal();modal.classList.remove('hidden');});
   btnCancel.addEventListener('click',()=>modal.classList.add('hidden'));
   btnOk.addEventListener('click', async ()=>{
     const nom=document.getElementById('ennemi-nom').value.trim()||'Inconnu';
@@ -525,7 +564,7 @@ function initModals() {
     const exp=parseInt(document.getElementById('ennemi-exp').value)||0;
     const resist=document.getElementById('ennemi-resist').value.trim();
     const weakness=document.getElementById('ennemi-weakness').value.trim();
-    ennemis.push({id:`${currentKind}_${Date.now()}`,type:currentKind,nom,hpMax,hpCurrent:hpMax,agi,atk,def,mag,res,exp,resist,weakness,statuts:[],hpHistory:[],hpPending:0,combatSkills:[]});
+    ennemis.push({id:`${currentKind}_${Date.now()}`,type:currentKind,nom,hpMax,hpCurrent:hpMax,agi,atk,def,mag,res,exp,resist,weakness,statuts:[],hpHistory:[],hpPending:0,combatSkills:ennemiSkills.map(s=>({nom:s.name,desc:s.desc||'',actif:false}))});
     ['ennemi-nom','ennemi-atk','ennemi-def','ennemi-mag','ennemi-res','ennemi-exp','ennemi-resist','ennemi-weakness'].forEach(id=>document.getElementById(id).value='');
     ['ennemi-hp-max','ennemi-agi'].forEach(id=>document.getElementById(id).value='50');
     modal.classList.add('hidden');
@@ -754,8 +793,11 @@ async function initGenerateur() {
   const humanFields=document.getElementById('gen-humanoid-fields');
   const genBtn=document.getElementById('gen-btn');
   typeSelect.addEventListener('change',()=>{
-    humanFields.style.display=typeSelect.value==='personnage'?'block':'none';
-    genBtn.disabled=!typeSelect.value;
+    const isHuman = typeSelect.value==='personnage';
+    humanFields.style.display = isHuman ? 'block' : 'none';
+    const rwInputs = document.getElementById('gen-rw-inputs');
+    if (rwInputs) rwInputs.classList.toggle('hidden', !isHuman);
+    genBtn.disabled = !typeSelect.value;
   });
   buildGenRaceDropdown();
   genBtn.addEventListener('click',genererMonstre);

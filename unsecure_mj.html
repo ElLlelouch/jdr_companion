@@ -270,8 +270,8 @@
             <div id="gen-skills-list"></div>
           </div>
 
-          <!-- Résistances & Faiblesses libres (surtout pour personnages) -->
-          <div class="gen-rw-inputs" id="gen-rw-inputs">
+          <!-- Résistances & Faiblesses libres — uniquement pour Personnage -->
+          <div class="gen-rw-inputs hidden" id="gen-rw-inputs">
             <div class="gen-bar-row" style="margin-bottom:0.4rem">
               <span class="gen-stat-label">🛡 Rés.</span>
               <input class="calc-input" id="gen-resist-input" type="text" placeholder="Résistances..." style="flex:1" />
@@ -619,6 +619,15 @@
           <label class="calc-label">⚡ Faiblesses</label>
           <input class="calc-input" id="ennemi-weakness" type="text" placeholder="ex: Foudre, Eau..." />
         </div>
+      </div>
+      <!-- Compétences -->
+      <div class="calc-field calc-field--full" style="margin-top:0.5rem">
+        <label class="calc-label">Compétences</label>
+        <div style="position:relative">
+          <input class="calc-input" id="ennemi-skill-input" type="text" placeholder="Rechercher une compétence..." />
+          <div class="equip-dropdown hidden" id="ennemi-skill-dropdown"></div>
+        </div>
+        <div id="ennemi-skills-list" style="display:flex;flex-direction:column;gap:0.3rem;margin-top:0.4rem"></div>
       </div>
       <div class="modal-btns">
         <button class="mj-btn" id="ennemi-confirm">Ajouter</button>
