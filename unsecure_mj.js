@@ -1697,9 +1697,10 @@ async function initGenerateur() {
       if (data.monster) monsterNames.push(data.monster);
     });
     monsterNames.sort((a,b) => a.localeCompare(b));
-    if (!monsterNames.length) {
-      console.warn('Aucun monstre trouvé dans Firebase. Avez-vous lancé import-monsters.html ?');
-    }
+
+    // Vider les options existantes sauf les 2 premières (— Choisir — et Personnage)
+    while (typeSelect.options.length > 2) typeSelect.remove(2);
+
     monsterNames.forEach(name => {
       const opt = document.createElement('option');
       opt.value = name; opt.textContent = name;
