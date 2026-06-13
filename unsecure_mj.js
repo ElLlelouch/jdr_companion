@@ -392,25 +392,28 @@ function renderCombattantRow(row, c) {
     row.appendChild(expWrap);
   }
 
-  // Résistances & Faiblesses
-  if ((c.resist && c.resist.length) || (c.weakness && c.weakness.length)) {
+  // Résistances & Faiblesses (stockées en string)
+  const resistStr  = Array.isArray(c.resist)   ? c.resist.join(', ')   : (c.resist   || '');
+  const weakStr    = Array.isArray(c.weakness)  ? c.weakness.join(', ') : (c.weakness || '');
+
+  if (resistStr || weakStr) {
     const rwWrap = document.createElement('div');
     rwWrap.className = 'combattant-stats-row';
     rwWrap.style.marginTop = '0.2rem';
 
-    if (c.resist && c.resist.length) {
+    if (resistStr) {
       const rLabel = document.createElement('span');
       rLabel.className = 'combattant-stat-badge';
       rLabel.style.cssText = 'color:#3498db;border-color:rgba(52,152,219,0.4);background:rgba(52,152,219,0.08)';
-      rLabel.textContent = '🛡 ' + c.resist.join(', ');
+      rLabel.textContent = '🛡 ' + resistStr;
       rwWrap.appendChild(rLabel);
     }
 
-    if (c.weakness && c.weakness.length) {
+    if (weakStr) {
       const wLabel = document.createElement('span');
       wLabel.className = 'combattant-stat-badge';
       wLabel.style.cssText = 'color:#e74c3c;border-color:rgba(231,76,60,0.4);background:rgba(231,76,60,0.08)';
-      wLabel.textContent = '⚡ ' + c.weakness.join(', ');
+      wLabel.textContent = '⚡ ' + weakStr;
       rwWrap.appendChild(wLabel);
     }
 
@@ -577,13 +580,13 @@ function renderCombattantStatuts(wrap, c) {
   const addBtn = document.createElement('button');
   addBtn.className   = 'statut-add-btn';
   addBtn.textContent = '+ Statut';
-  addBtn.addEventListener('click', () => showStatutMenuMJ(addBtn, c, wrap));
+  addBtn.addEventListener('click', () => showStatutMenuMJ(addBtn, c, wrap, () => sauvegarderCombat()));
 
   wrap.appendChild(list);
   wrap.appendChild(addBtn);
 }
 
-function showStatutMenuMJ(anchor, c, wrap) {
+function showStatutMenuMJ(anchor, c, wrap, onSave) {
   const old = document.getElementById('statut-menu-mj');
   if (old) { old.remove(); return; }
 
@@ -592,20 +595,20 @@ function showStatutMenuMJ(anchor, c, wrap) {
   menu.className = 'statut-menu-popup';
 
   const opts = [
-    { label: '✏️ Manuel',            action: () => { c.statuts.push({ nom:'', desc:'', type:'', checks:[false,false,false,false,false] }); renderCombattantStatuts(wrap,c); menu.remove(); } },
+    { label: '✏️ Manuel',            action: () => { c.statuts.push({ nom:'', desc:'', type:'', checks:[false,false,false,false,false] }); renderCombattantStatuts(wrap,c); menu.remove(); if(onSave)onSave(); } },
     { label: '✦ Positif aléatoire',  cls: 'statut-menu-btn--pos', action: () => {
       const pool = statutsCacheMJ.filter(s => s.type==='pos');
       if (!pool.length) return;
       const s = pool[Math.floor(Math.random()*pool.length)];
       c.statuts.push({ nom:s.nom, desc:s.desc||'', type:s.type||'pos', checks:[false,false,false,false,false] });
-      renderCombattantStatuts(wrap,c); menu.remove();
+      renderCombattantStatuts(wrap,c); menu.remove(); if(onSave)onSave();
     }},
     { label: '✦ Négatif aléatoire',  cls: 'statut-menu-btn--neg', action: () => {
       const pool = statutsCacheMJ.filter(s => s.type==='neg');
       if (!pool.length) return;
       const s = pool[Math.floor(Math.random()*pool.length)];
       c.statuts.push({ nom:s.nom, desc:s.desc||'', type:s.type||'neg', checks:[false,false,false,false,false] });
-      renderCombattantStatuts(wrap,c); menu.remove();
+      renderCombattantStatuts(wrap,c); menu.remove(); if(onSave)onSave();
     }},
     { label: '📋 Depuis la liste',   action: () => { menu.remove(); showStatutListeMJ(c, wrap); } },
   ];
@@ -655,6 +658,7 @@ function showStatutListeMJ(c, wrap) {
         c.statuts.push({ nom:s.nom, desc:s.desc||'', type:s.type||'', checks:[false,false,false,false,false] });
         renderCombattantStatuts(wrap, c);
         overlay.remove();
+        if(onSave) onSave();
       });
       items.appendChild(row);
     });
@@ -1824,8 +1828,8 @@ async function genererMonstre() {
   genCurrentMonster = {
     name, subLabel, typeVal, level, pv, pm, atk, def, mag, res, agi, exp,
     availableSkills,
-    resist:   isHuman ? [] : (monsterData.resist   || []),
-    weakness: isHuman ? [] : (monsterData.weakness || []),
+    resist:   isHuman ? '' : (monsterData.resist   || ''),
+    weakness: isHuman ? '' : (monsterData.weakness || ''),
   };
   genSkills = [];
 
@@ -1836,6 +1840,28 @@ async function genererMonstre() {
   ['pv','pm','atk','def','mag','res','agi'].forEach(k => document.getElementById(`gen-${k}`).value = eval(k));
   document.getElementById('gen-exp').textContent = exp;
   document.getElementById('gen-skills-list').innerHTML = '';
+
+  // Afficher resist/weakness dans le résultat
+  const genRwEl = document.getElementById('gen-rw');
+  if (genRwEl) {
+    genRwEl.innerHTML = '';
+    const rStr = genCurrentMonster.resist   || '';
+    const wStr = genCurrentMonster.weakness || '';
+    if (rStr) {
+      const r = document.createElement('span');
+      r.className = 'combattant-stat-badge';
+      r.style.cssText = 'color:#3498db;border-color:rgba(52,152,219,0.4);background:rgba(52,152,219,0.08)';
+      r.textContent = '🛡 ' + rStr;
+      genRwEl.appendChild(r);
+    }
+    if (wStr) {
+      const w = document.createElement('span');
+      w.className = 'combattant-stat-badge';
+      w.style.cssText = 'color:#e74c3c;border-color:rgba(231,76,60,0.4);background:rgba(231,76,60,0.08)';
+      w.textContent = '⚡ ' + wStr;
+      genRwEl.appendChild(w);
+    }
+  }
 }
 
 function showGenSkillDropdown() {
