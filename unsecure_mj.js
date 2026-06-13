@@ -205,7 +205,7 @@ function renderInitiative() {
     if (joueursHidden.has(id)) return;
     tous.push({ kind:'pj', id, nom:data.nom, hpCurrent:data.hpCurrent||0, hpMax:data.hpMax||0, agi:calcStatTotal(data,'AGI'), data, statuts:data.statuts||[] });
   });
-  ennemis.forEach(e => tous.push({ kind:e.type, ...e }));
+  ennemis.forEach(e => tous.push({ kind:e.type, ...e, _ref:e }));
 
   // Joueurs masqués
   if (joueursHidden.size > 0) {
@@ -264,18 +264,20 @@ function renderJoueurRow(row, c) {
     statsEl.appendChild(badge);
   });
 
-  // Résistances & Faiblesses joueur
+  const statutsWrapPJ = document.createElement('div'); statutsWrapPJ.className='combattant-statuts-edit';
+  renderStatutsPJ(statutsWrapPJ, c);
+
+  // Résistances & Faiblesses joueur — sur leur propre ligne après les stats
   const rStr = data.resist   || '';
   const wStr = data.weakness || '';
   if (rStr || wStr) {
-    const rwWrap = document.createElement('div'); rwWrap.className='combattant-stats-row'; rwWrap.style.marginTop='0.2rem';
+    const rwWrap = document.createElement('div');
+    rwWrap.className = 'combattant-stats-row';
+    rwWrap.style.cssText = 'margin-top:0.2rem;width:100%;flex-basis:100%';
     if (rStr) { const r=document.createElement('span'); r.className='combattant-stat-badge'; r.style.cssText='color:#3498db;border-color:rgba(52,152,219,0.4);background:rgba(52,152,219,0.08)'; r.textContent='🛡 '+rStr; rwWrap.appendChild(r); }
     if (wStr) { const w=document.createElement('span'); w.className='combattant-stat-badge'; w.style.cssText='color:#e74c3c;border-color:rgba(231,76,60,0.4);background:rgba(231,76,60,0.08)'; w.textContent='⚡ '+wStr; rwWrap.appendChild(w); }
     row.appendChild(rwWrap);
   }
-
-  const statutsWrapPJ = document.createElement('div'); statutsWrapPJ.className='combattant-statuts-edit';
-  renderStatutsPJ(statutsWrapPJ, c);
 
   const delBtn = document.createElement('button'); delBtn.className='combattant-delete'; delBtn.textContent='✕'; delBtn.title='Masquer ce joueur';
   delBtn.addEventListener('click',()=>{ joueursHidden.add(c.id); renderInitiative(); });
@@ -331,16 +333,24 @@ function renderCombattantRow(row, c) {
     if(c.hpHistory.length>5) c.hpHistory.pop();
     renderHpHistory(historyEl,c.hpHistory);
     c.hpPending=0;
-    sauvegarderCombat(); // Sauvegarder après flush pour persister hpCurrent
+    // Synchroniser avec l'objet original dans ennemis[]
+    if (c._ref) {
+      c._ref.hpHistory = c.hpHistory;
+      c._ref.hpPending = 0;
+    }
+    sauvegarderCombat();
   }
   function changeHp(d) {
     const avant=c.hpCurrent;
     c.hpCurrent=Math.max(0,Math.min(c.hpMax,c.hpCurrent+d));
+    // Mettre à jour AUSSI l'objet original dans ennemis[] via _ref
+    if (c._ref) c._ref.hpCurrent = c.hpCurrent;
     hpTxt.textContent=`${c.hpCurrent}/${c.hpMax}`;
     row.classList.toggle('combattant-row--critique',(c.hpMax>0&&(c.hpCurrent/c.hpMax)*100<=25));
     const delta=c.hpCurrent-avant;
     if(delta!==0){
       c.hpPending+=delta;
+      if (c._ref) c._ref.hpPending = c.hpPending;
       clearTimeout(histDebounce);
       histDebounce=setTimeout(flushHpHistory,3000);
       sauvegarderCombat();
