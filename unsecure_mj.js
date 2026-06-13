@@ -264,25 +264,28 @@ function renderJoueurRow(row, c) {
     statsEl.appendChild(badge);
   });
 
-  const statutsWrapPJ = document.createElement('div'); statutsWrapPJ.className='combattant-statuts-edit';
-  renderStatutsPJ(statutsWrapPJ, c);
-
-  // Résistances & Faiblesses joueur — sur leur propre ligne après les stats
+  // Résistances & Faiblesses joueur
   const rStr = data.resist   || '';
   const wStr = data.weakness || '';
-  if (rStr || wStr) {
-    const rwWrap = document.createElement('div');
-    rwWrap.className = 'combattant-stats-row';
-    rwWrap.style.cssText = 'margin-top:0.2rem;width:100%;flex-basis:100%';
-    if (rStr) { const r=document.createElement('span'); r.className='combattant-stat-badge'; r.style.cssText='color:#3498db;border-color:rgba(52,152,219,0.4);background:rgba(52,152,219,0.08)'; r.textContent='🛡 '+rStr; rwWrap.appendChild(r); }
-    if (wStr) { const w=document.createElement('span'); w.className='combattant-stat-badge'; w.style.cssText='color:#e74c3c;border-color:rgba(231,76,60,0.4);background:rgba(231,76,60,0.08)'; w.textContent='⚡ '+wStr; rwWrap.appendChild(w); }
-    row.appendChild(rwWrap);
-  }
+  const rwWrapPJ = document.createElement('div');
+  rwWrapPJ.className = 'combattant-stats-row';
+  rwWrapPJ.style.cssText = 'margin-top:0.2rem;width:100%;flex-basis:100%';
+  if (rStr) { const r=document.createElement('span'); r.className='combattant-stat-badge'; r.style.cssText='color:#3498db;border-color:rgba(52,152,219,0.4);background:rgba(52,152,219,0.08)'; r.textContent='🛡 '+rStr; rwWrapPJ.appendChild(r); }
+  if (wStr) { const w=document.createElement('span'); w.className='combattant-stat-badge'; w.style.cssText='color:#e74c3c;border-color:rgba(231,76,60,0.4);background:rgba(231,76,60,0.08)'; w.textContent='⚡ '+wStr; rwWrapPJ.appendChild(w); }
+
+  const statutsWrapPJ = document.createElement('div'); statutsWrapPJ.className='combattant-statuts-edit';
+  renderStatutsPJ(statutsWrapPJ, c);
 
   const delBtn = document.createElement('button'); delBtn.className='combattant-delete'; delBtn.textContent='✕'; delBtn.title='Masquer ce joueur';
   delBtn.addEventListener('click',()=>{ joueursHidden.add(c.id); renderInitiative(); });
 
-  row.appendChild(left); row.appendChild(historyEl); row.appendChild(statsEl); row.appendChild(statutsWrapPJ); row.appendChild(delBtn);
+  // Ordre : nom/PV > historique > stats > résist/faib > statuts > croix
+  row.appendChild(left);
+  row.appendChild(historyEl);
+  row.appendChild(statsEl);
+  if (rStr || wStr) row.appendChild(rwWrapPJ);
+  row.appendChild(statutsWrapPJ);
+  row.appendChild(delBtn);
 }
 
 function renderStatutsPJ(wrap, c) {
