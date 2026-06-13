@@ -133,6 +133,59 @@ function calcStatTotal(data, stat) {
 // =====================
 function tranche(agi){ return Math.floor(agi/10)*10; }
 
+function updateJoueursInInitiative() {
+  // Si pas encore de combattants affichés, faire un render complet
+  const container = document.getElementById('initiative-container');
+  if (!container || !container.children.length) {
+    renderInitiative();
+    return;
+  }
+  // Sinon, mettre à jour uniquement les données joueurs en mémoire
+  // et re-render seulement si un joueur PJ a changé de tranche d'AGI
+  // (ce qui nécessiterait un re-tri) — sinon juste rafraîchir leurs lignes
+  const STAT_MAP = {ATK:'atk',DEF:'def',MAG:'mag',RESI:'res',AGI:'agi'};
+
+  Object.values(joueursData).forEach(data => {
+    // Trouver la ligne joueur dans le DOM par le nom
+    const rows = container.querySelectorAll('.combattant-row--pj');
+    rows.forEach(row => {
+      const nomEl = row.querySelector('.combattant-nom');
+      if (!nomEl || nomEl.textContent !== data.nom) return;
+
+      // Mettre à jour PV
+      const hpEl = row.querySelector('.combattant-hp-text');
+      if (hpEl) hpEl.textContent = `${data.hpCurrent||0} / ${data.hpMax||0} PV`;
+
+      // Mettre à jour l'historique
+      const histEl = row.querySelector('.hp-history-mj');
+      if (histEl) {
+        const hpHist = (data.historique||[]).filter(e=>e.type==='hp').slice(0,5);
+        renderHpHistory(histEl, hpHist);
+      }
+
+      // Mettre à jour les stats badges
+      const statsRow = row.querySelector('.combattant-stats-row');
+      if (statsRow) {
+        const STATS = ['ATK','DEF','MAG','RESI','AGI'];
+        const badges = statsRow.querySelectorAll('.combattant-stat-badge');
+        STATS.forEach((stat, i) => {
+          const flat  = parseFloat(data[`flat${stat}`]||0);
+          const total = calcStatTotal(data, stat);
+          if (badges[i]) badges[i].textContent = `${stat} ${flat}/${total}`;
+        });
+      }
+
+      // Mettre à jour statuts
+      const statutsWrap = row.querySelector('.combattant-statuts-edit');
+      if (statutsWrap) renderStatutsPJ(statutsWrap, { statuts: data.statuts||[] });
+
+      // Vignette critique
+      const pct = data.hpMax > 0 ? (data.hpCurrent / data.hpMax) * 100 : 0;
+      row.classList.toggle('combattant-row--critique', pct <= 25 && data.hpMax > 0);
+    });
+  });
+}
+
 function renderInitiative() {
   const container=document.getElementById('initiative-container');
   container.innerHTML='';
@@ -339,6 +392,31 @@ function renderCombattantRow(row, c) {
     row.appendChild(expWrap);
   }
 
+  // Résistances & Faiblesses
+  if ((c.resist && c.resist.length) || (c.weakness && c.weakness.length)) {
+    const rwWrap = document.createElement('div');
+    rwWrap.className = 'combattant-stats-row';
+    rwWrap.style.marginTop = '0.2rem';
+
+    if (c.resist && c.resist.length) {
+      const rLabel = document.createElement('span');
+      rLabel.className = 'combattant-stat-badge';
+      rLabel.style.cssText = 'color:#3498db;border-color:rgba(52,152,219,0.4);background:rgba(52,152,219,0.08)';
+      rLabel.textContent = '🛡 ' + c.resist.join(', ');
+      rwWrap.appendChild(rLabel);
+    }
+
+    if (c.weakness && c.weakness.length) {
+      const wLabel = document.createElement('span');
+      wLabel.className = 'combattant-stat-badge';
+      wLabel.style.cssText = 'color:#e74c3c;border-color:rgba(231,76,60,0.4);background:rgba(231,76,60,0.08)';
+      wLabel.textContent = '⚡ ' + c.weakness.join(', ');
+      rwWrap.appendChild(wLabel);
+    }
+
+    row.appendChild(rwWrap);
+  }
+
   // Compétences du monstre (depuis le générateur)
   if (c.combatSkills && c.combatSkills.length) {
     const skillsWrap = document.createElement('div');
@@ -371,7 +449,16 @@ function renderCombattantRow(row, c) {
 
   const del=document.createElement('button');
   del.className='combattant-delete'; del.textContent='✕';
-  del.addEventListener('click',()=>{ennemis=ennemis.filter(e=>e.id!==c.id);renderInitiative();});
+  del.addEventListener('click', async () => {
+    // Ajouter l'EXP de cet ennemi au total
+    if (c.exp && c.type === 'enemy') {
+      expTotal += c.exp;
+      majExpTotal();
+    }
+    ennemis = ennemis.filter(e => e.id !== c.id);
+    await sauvegarderCombat();
+    renderInitiative();
+  });
   row.appendChild(del);
 }
 
@@ -603,7 +690,7 @@ function initModals() {
   btnAlly.addEventListener('click', ()=>{titleEl.textContent='Ajouter un allié'; currentKind='ally'; modal.classList.remove('hidden');});
   btnCancel.addEventListener('click',()=>modal.classList.add('hidden'));
 
-  btnOk.addEventListener('click',()=>{
+  btnOk.addEventListener('click', async ()=>{
     const nom   =document.getElementById('ennemi-nom').value.trim()||'Inconnu';
     const hpMax =parseInt(document.getElementById('ennemi-hp-max').value)||50;
     const agi   =parseInt(document.getElementById('ennemi-agi').value)||50;
@@ -612,10 +699,11 @@ function initModals() {
     const mag   =parseInt(document.getElementById('ennemi-mag').value)||0;
     const res   =parseInt(document.getElementById('ennemi-res').value)||0;
     const exp   =parseInt(document.getElementById('ennemi-exp').value)||0;
-    ennemis.push({id:`${currentKind}_${Date.now()}`,type:currentKind,nom,hpMax,hpCurrent:hpMax,agi,atk,def,mag,res,exp,statuts:[],hpHistory:[]});
+    ennemis.push({id:`${currentKind}_${Date.now()}`,type:currentKind,nom,hpMax,hpCurrent:hpMax,agi,atk,def,mag,res,exp,statuts:[],hpHistory:[],hpPending:0});
     ['ennemi-nom','ennemi-atk','ennemi-def','ennemi-mag','ennemi-res','ennemi-exp'].forEach(id=>document.getElementById(id).value='');
     ['ennemi-hp-max','ennemi-agi'].forEach(id=>document.getElementById(id).value='50');
     modal.classList.add('hidden');
+    await sauvegarderCombat();
     renderInitiative();
   });
 }
@@ -624,10 +712,11 @@ function initModals() {
 // NOUVEAU COMBAT
 // =====================
 function initNouveauCombat() {
-  document.getElementById('btn-nouveau-combat').addEventListener('click',()=>{
+  document.getElementById('btn-nouveau-combat').addEventListener('click', async ()=>{
     if(!confirm('Réinitialiser le combat ? Les ennemis et alliés seront supprimés.')) return;
     ennemis=[];
     joueursHidden.clear();
+    await sauvegarderCombat();
     renderInitiative();
   });
 }
@@ -1237,6 +1326,35 @@ async function initMessages() {
 
 
 // =====================
+// COMBAT — persistance Firebase
+// =====================
+async function chargerCombat() {
+  try {
+    const snap = await getDoc(doc(db, 'mj', 'combat'));
+    if (snap.exists()) {
+      const data = snap.data();
+      ennemis  = data.ennemis  || [];
+      expTotal = data.expTotal || 0;
+    }
+  } catch(e) { console.warn('Erreur chargement combat:', e); }
+  majExpTotal();
+}
+
+async function sauvegarderCombat() {
+  try {
+    await setDoc(doc(db, 'mj', 'combat'), {
+      ennemis:  ennemis,
+      expTotal: expTotal,
+    }, { merge: true });
+  } catch(e) { console.warn('Erreur sauvegarde combat:', e); }
+}
+
+function majExpTotal() {
+  const el = document.getElementById('exp-total-val');
+  if (el) el.textContent = expTotal;
+}
+
+// =====================
 // FAVORIS & FAMILIERS
 // =====================
 async function initFavoris() {
@@ -1341,7 +1459,7 @@ function renderFavoris() {
   });
 }
 
-function addFavoriToCombat(f) {
+async function addFavoriToCombat(f) {
   ennemis.push({
     id:          `ally_${Date.now()}`,
     type:        'ally',
@@ -1355,9 +1473,10 @@ function addFavoriToCombat(f) {
     res:         f.res  || 0,
     exp:         f.exp  || 0,
     statuts:     [],
-    hpHistory:   [],
+    hpHistory:   [], hpPending: 0,
     combatSkills:[],
   });
+  await sauvegarderCombat();
   renderInitiative();
 
   // Petit feedback visuel
@@ -1702,7 +1821,12 @@ async function genererMonstre() {
   const agi = calcFinalStat(monsterData.baseAgi, monsterData.growthAgi, level, isHuman);
   const exp = calcExp({...monsterData, baseAtk:monsterData.baseAtk||atk, baseDef:monsterData.baseDef||def, baseMag:monsterData.baseMag||mag, baseRes:monsterData.baseRes||res, baseAgi:monsterData.baseAgi||agi, basePV:monsterData.basePV||pv, basePM:monsterData.basePM||pm}, level);
 
-  genCurrentMonster = { name, subLabel, typeVal, level, pv, pm, atk, def, mag, res, agi, exp, availableSkills };
+  genCurrentMonster = {
+    name, subLabel, typeVal, level, pv, pm, atk, def, mag, res, agi, exp,
+    availableSkills,
+    resist:   isHuman ? [] : (monsterData.resist   || []),
+    weakness: isHuman ? [] : (monsterData.weakness || []),
+  };
   genSkills = [];
 
   document.getElementById('gen-result').classList.remove('hidden');
@@ -1746,7 +1870,7 @@ function renderGenSkills() {
   });
 }
 
-function addGenToCombat(kind) {
+async function addGenToCombat(kind) {
   if(!genCurrentMonster) return;
   const pv  = parseInt(document.getElementById('gen-pv').value)  || genCurrentMonster.pv;
   const agi = parseInt(document.getElementById('gen-agi').value) || genCurrentMonster.agi;
@@ -1762,9 +1886,12 @@ function addGenToCombat(kind) {
     nom: genCurrentMonster.name,
     hpMax: pv, hpCurrent: pv,
     agi, atk, def, mag, res, exp,
-    statuts: [], hpHistory: [],
+    resist:   genCurrentMonster.resist   || [],
+    weakness: genCurrentMonster.weakness || [],
+    statuts: [], hpHistory: [], hpPending: 0,
     combatSkills: genSkills.map(s => ({ nom: s.name, desc: s.desc||'', actif: false })),
   });
+  await sauvegarderCombat();
   renderInitiative();
 
   // Message de confirmation
@@ -1791,7 +1918,9 @@ async function init() {
   document.getElementById('items-filter-type').addEventListener('change',e=>renderItems(document.getElementById('items-search').value,e.target.value));
   onSnapshot(collection(db,'joueurs'),snapshot=>{
     snapshot.forEach(d=>{joueursData[d.id]={id:d.id,...d.data()};});
-    renderInitiative();
+    // Mettre à jour uniquement les lignes joueurs dans l'initiative
+    // sans toucher aux ennemis/alliés (qui ont des PV modifiés en mémoire)
+    updateJoueursInInitiative();
     renderApercu();
   });
 
@@ -1824,6 +1953,16 @@ async function init() {
   await chargerStatutsMJ();
 
   await initFavoris();
+  await chargerCombat();
+
+  // Reset EXP
+  document.getElementById('btn-reset-exp')?.addEventListener('click', async () => {
+    if (!confirm('Remettre l\'EXP a zero ?')) return;
+    expTotal = 0;
+    majExpTotal();
+    await sauvegarderCombat();
+  });
+
   await initApercu();
   initStatutsMJ();
   await chargerSkills();
