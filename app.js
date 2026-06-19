@@ -1005,8 +1005,22 @@ if (isAppPage) {
         </td>
         <td><input class="comp-input inv-input" data-i="${i}" data-field="nom" type="text" value="${item.nom||''}" placeholder="Objet" style="width:100%" /></td>
         <td class="td-wrap"><input class="comp-input inv-input" data-i="${i}" data-field="desc" type="text" value="${item.desc||''}" placeholder="Description" style="width:100%" /></td>
+        <td>
+          <div class="reorder-group">
+            <button class="reorder-btn" data-i="${i}" data-dir="-1" ${i===0?'disabled':''}>▲</button>
+            <button class="reorder-btn" data-i="${i}" data-dir="1" ${i===state.inventaire.length-1?'disabled':''}>▼</button>
+          </div>
+        </td>
         <td><button class="inv-del-btn" data-i="${i}">✕</button></td>`;
       tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll('.reorder-btn').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const i=parseInt(btn.dataset.i), dir=parseInt(btn.dataset.dir), j=i+dir;
+        if(j<0||j>=state.inventaire.length) return;
+        [state.inventaire[i], state.inventaire[j]] = [state.inventaire[j], state.inventaire[i]];
+        renderInventaire(); sauvegarder({inventaire:state.inventaire});
+      });
     });
     tbody.querySelectorAll('.inv-input').forEach(input=>{
       input.addEventListener('blur',()=>{
@@ -1283,6 +1297,35 @@ if (isAppPage) {
         tdMait.textContent = mconf.value;
       }
       tr.appendChild(tdMait);
+
+      // ---- Réordonner ----
+      const tdReorder = document.createElement('td');
+      const reorderGroup = document.createElement('div');
+      reorderGroup.className = 'reorder-group';
+      const upBtn = document.createElement('button');
+      upBtn.className = 'reorder-btn';
+      upBtn.textContent = '▲';
+      upBtn.disabled = i === 0;
+      upBtn.addEventListener('click', () => {
+        if (i === 0) return;
+        [state.competences[i], state.competences[i-1]] = [state.competences[i-1], state.competences[i]];
+        renderCompetences();
+        sauvegarder({ competences: state.competences });
+      });
+      const downBtn = document.createElement('button');
+      downBtn.className = 'reorder-btn';
+      downBtn.textContent = '▼';
+      downBtn.disabled = i === state.competences.length - 1;
+      downBtn.addEventListener('click', () => {
+        if (i === state.competences.length - 1) return;
+        [state.competences[i], state.competences[i+1]] = [state.competences[i+1], state.competences[i]];
+        renderCompetences();
+        sauvegarder({ competences: state.competences });
+      });
+      reorderGroup.appendChild(upBtn);
+      reorderGroup.appendChild(downBtn);
+      tdReorder.appendChild(reorderGroup);
+      tr.appendChild(tdReorder);
 
       // ---- Supprimer ----
       const tdDel = document.createElement('td');
